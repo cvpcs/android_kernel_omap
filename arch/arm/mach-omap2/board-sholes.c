@@ -105,26 +105,26 @@
 
 #define SHOLES_MMCPROBE_ENABLED 0
 
-#ifdef CONFIG_SHOLES_OC_MIN_125
+#if defined(CONFIG_SHOLES_OC_MIN_125)
 	#define SHOLES_FREQ_1 125000000
 
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_1 0x20
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_1 0x27
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_1 0x27
 	#else
 		#define SHOLES_VSEL_1 0x20
 	#endif
-#elif CONFIG_SHOLES_OC_MIN_250
+#elif defined(CONFIG_SHOLES_OC_MIN_250)
 	#define SHOLES_FREQ_1 250000000
 
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_1 0x20
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_1 0x27
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_1 0x27
 	#else
 		#define SHOLES_VSEL_1 0x20
@@ -132,11 +132,11 @@
 #else
 	#define SHOLES_FREQ_1 125000000
 
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_1 0x20
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_1 0x27
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_1 0x27
 	#else
 		#define SHOLES_VSEL_1 0x20
@@ -144,35 +144,35 @@
 #endif
 
 #define SHOLES_FREQ_2 400000000
-#ifdef CONFIG_SHOLES_OC_LV
+#if defined(CONFIG_SHOLES_OC_LV)
 	#define SHOLES_VSEL_2 0x28
-#elif CONFIG_SHOLES_OC_SV
+#elif defined(CONFIG_SHOLES_OC_SV)
 	#define SHOLES_VSEL_2 0x32
-#elif CONFIG_SHOLES_OC_IV
+#elif defined(CONFIG_SHOLES_OC_IV)
 	#define SHOLES_VSEL_2 0x32
 #else
 	#define SHOLES_VSEL_2 0x28
 #endif
 
-#ifdef CONFIG_SHOLES_MAX_800
+#if defined(CONFIG_SHOLES_OC_MAX_800)
 	#define SHOLES_FREQ_3  550000000
 	#define SHOLES_FREQ_4  600000000
 	#define SHOLES_FREQ_5  700000000
 	#define SHOLES_FREQ_6  750000000
 	#define SHOLES_FREQ_7  800000000
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_3 0x32
 		#define SHOLES_VSEL_4 0x34
 		#define SHOLES_VSEL_5 0x38
 		#define SHOLES_VSEL_6 0x38
 		#define SHOLES_VSEL_7 0x3B
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x3E
 		#define SHOLES_VSEL_6 0x3E
 		#define SHOLES_VSEL_7 0x3E
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x3E
@@ -185,25 +185,25 @@
 		#define SHOLES_VSEL_6 0x38
 		#define SHOLES_VSEL_7 0x3B
 	#endif
-#elif CONFIG_SHOLES_MAX_900
+#elif defined(CONFIG_SHOLES_OC_MAX_900)
 	#define SHOLES_FREQ_3  550000000
 	#define SHOLES_FREQ_4  600000000
 	#define SHOLES_FREQ_5  700000000
 	#define SHOLES_FREQ_6  800000000
 	#define SHOLES_FREQ_7  900000000
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_3 0x32
 		#define SHOLES_VSEL_4 0x34
 		#define SHOLES_VSEL_5 0x38
 		#define SHOLES_VSEL_6 0x3B
 		#define SHOLES_VSEL_7 0x3C
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x3E
 		#define SHOLES_VSEL_6 0x3E
 		#define SHOLES_VSEL_7 0x3F
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x3E
@@ -216,25 +216,25 @@
 		#define SHOLES_VSEL_6 0x3B
 		#define SHOLES_VSEL_7 0x3C
 	#endif
-#elif CONFIG_SHOLES_MAX_1000
+#elif defined(CONFIG_SHOLES_OC_MAX_1000)
 	#define SHOLES_FREQ_3  550000000
 	#define SHOLES_FREQ_4  600000000
 	#define SHOLES_FREQ_5  800000000
 	#define SHOLES_FREQ_6  900000000
 	#define SHOLES_FREQ_7 1000000000
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_3 0x32
 		#define SHOLES_VSEL_4 0x34
 		#define SHOLES_VSEL_5 0x3B
 		#define SHOLES_VSEL_6 0x3C
 		#define SHOLES_VSEL_7 0x3E
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x3E
 		#define SHOLES_VSEL_6 0x3F
 		#define SHOLES_VSEL_7 0x3F
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x4A
@@ -247,25 +247,25 @@
 		#define SHOLES_VSEL_6 0x3C
 		#define SHOLES_VSEL_7 0x3E
 	#endif
-#elif CONFIG_SHOLES_MAX_1100
+#elif defined(CONFIG_SHOLES_OC_MAX_1100)
 	#define SHOLES_FREQ_3  550000000
 	#define SHOLES_FREQ_4  600000000
 	#define SHOLES_FREQ_5  800000000
 	#define SHOLES_FREQ_6 1000000000
 	#define SHOLES_FREQ_7 1100000000
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_3 0x32
 		#define SHOLES_VSEL_4 0x34
 		#define SHOLES_VSEL_5 0x3B
 		#define SHOLES_VSEL_6 0x3E
 		#define SHOLES_VSEL_7 0x44
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x3E
 		#define SHOLES_VSEL_6 0x3F
 		#define SHOLES_VSEL_7 0x50
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x4A
@@ -278,25 +278,25 @@
 		#define SHOLES_VSEL_6 0x3E
 		#define SHOLES_VSEL_7 0x44
 	#endif
-#elif CONFIG_SHOLES_MAX_1200
+#elif defined(CONFIG_SHOLES_OC_MAX_1200)
 	#define SHOLES_FREQ_3  550000000
 	#define SHOLES_FREQ_4  600000000
 	#define SHOLES_FREQ_5  800000000
 	#define SHOLES_FREQ_6 1000000000
 	#define SHOLES_FREQ_7 1200000000
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_3 0x32
 		#define SHOLES_VSEL_4 0x34
 		#define SHOLES_VSEL_5 0x3B
 		#define SHOLES_VSEL_6 0x3E
 		#define SHOLES_VSEL_7 0x52
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x3E
 		#define SHOLES_VSEL_6 0x3F
 		#define SHOLES_VSEL_7 0x62
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x4A
@@ -309,25 +309,25 @@
 		#define SHOLES_VSEL_6 0x3E
 		#define SHOLES_VSEL_7 0x52
 	#endif
-#elif CONFIG_SHOLES_MAX_1250
+#elif defined(CONFIG_SHOLES_OC_MAX_1250)
 	#define SHOLES_FREQ_3  550000000
 	#define SHOLES_FREQ_4  700000000
 	#define SHOLES_FREQ_5  900000000
 	#define SHOLES_FREQ_6 1100000000
 	#define SHOLES_FREQ_7 1250000000
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_3 0x32
 		#define SHOLES_VSEL_4 0x38
 		#define SHOLES_VSEL_5 0x3C
 		#define SHOLES_VSEL_6 0x44
 		#define SHOLES_VSEL_7 0x58
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x3F
 		#define SHOLES_VSEL_6 0x50
 		#define SHOLES_VSEL_7 0x62
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x4A
@@ -340,25 +340,25 @@
 		#define SHOLES_VSEL_6 0x44
 		#define SHOLES_VSEL_7 0x58
 	#endif
-#elif CONFIG_SHOLES_MAX_1300
+#elif defined(CONFIG_SHOLES_OC_MAX_1300)
 	#define SHOLES_FREQ_3  600000000
 	#define SHOLES_FREQ_4  800000000
 	#define SHOLES_FREQ_5 1000000000
 	#define SHOLES_FREQ_6 1100000000
 	#define SHOLES_FREQ_7 1300000000
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_3 0x34
 		#define SHOLES_VSEL_4 0x3B
 		#define SHOLES_VSEL_5 0x3E
 		#define SHOLES_VSEL_6 0x44
 		#define SHOLES_VSEL_7 0x60
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_3 0x3E
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x3F
 		#define SHOLES_VSEL_6 0x50
 		#define SHOLES_VSEL_7 0x62
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_3 0x3E
 		#define SHOLES_VSEL_4 0x4A
 		#define SHOLES_VSEL_5 0x50
@@ -377,19 +377,19 @@
 	#define SHOLES_FREQ_5  800000000
 	#define SHOLES_FREQ_6  900000000
 	#define SHOLES_FREQ_7 1000000000
-	#ifdef CONFIG_SHOLES_OC_LV
+	#if defined(CONFIG_SHOLES_OC_LV)
 		#define SHOLES_VSEL_3 0x32
 		#define SHOLES_VSEL_4 0x34
 		#define SHOLES_VSEL_5 0x3B
 		#define SHOLES_VSEL_6 0x3C
 		#define SHOLES_VSEL_7 0x3E
-	#elif CONFIG_SHOLES_OC_SV
+	#elif defined(CONFIG_SHOLES_OC_SV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x3E
 		#define SHOLES_VSEL_6 0x3F
 		#define SHOLES_VSEL_7 0x3F
-	#elif CONFIG_SHOLES_OC_IV
+	#elif defined(CONFIG_SHOLES_OC_IV)
 		#define SHOLES_VSEL_3 0x38
 		#define SHOLES_VSEL_4 0x3E
 		#define SHOLES_VSEL_5 0x4A
