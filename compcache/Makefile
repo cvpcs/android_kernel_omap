@@ -1,4 +1,4 @@
-KERNEL_BUILD_PATH ?= "~/kernel/32omap"
+KERNEL_BUILD_PATH ?= "/lib/modules/$(shell uname -r)/build"
 
 XVM = sub-projects/allocators/xvmalloc-kmod
 EXTRA_CFLAGS	:=	-DCONFIG_RAMZSWAP_STATS		\

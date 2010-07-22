@@ -3,7 +3,7 @@ all:
 
 doc:
 	@xmllint --noout --valid man/rzscontrol.xml
-	@xsltproc -o man/ /usr/share/kde4/apps/ksgmltools2/docbook/xsl/manpages/docbook.xsl \
+	@xsltproc -o man/ /usr/share/sgml/docbook/xsl-stylesheets/manpages/docbook.xsl \
 		man/rzscontrol.xml
 	@man2html man/rzscontrol.1 > man/rzscontrol.html
 
