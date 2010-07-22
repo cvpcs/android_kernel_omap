@@ -1,0 +1,85 @@
+#!/bin/bash
+
+if [ "${ARCH}" != "arm" ] ; then
+	echo "you must export ARCH as 'arm'"
+	exit 1
+fi
+
+if [ "${HOST_PLATFORM}" != "zoom2" ] ; then
+	echo "you must export HOST_PLATFORM as 'zoom2'"
+	exit 1
+fi
+
+if [ -z "${KERNEL_DIR}" ] ; then
+	echo "you must export your KERNEL_DIR"
+	exit 1
+fi
+
+if [ -z "${CROSS_COMPILE}" ] ; then
+	echo "you must export CROSS_COMPLIE as 'arm-eabi-'"
+	exit 1
+fi
+
+if [ -z "${ANDROID_BUILD_TOP}" ] ; then
+	echo "you must run build/envsetup.sh as well as lunch, to set some android envs"
+	exit 1
+fi
+
+olddir=$(pwd)
+
+for i in $(ls -1 arch/arm/configs/*sapphire*_defconfig | sed -r "s/^.*\/([^\/]+)$/\1/"); do
+	# move to the kernel directory
+	cd "${KERNEL_DIR}"
+
+	# clean the tree
+	make mrproper
+
+	# load the config
+	make "${i}"
+
+	# make the kernel/modules
+	make
+
+	# create an output directory
+	mkdir tmpdir
+
+	# copy the kernel image
+	cp arch/arm/boot/zImage tmpdir/
+	# copy all of the modules to that directory
+	for j in $(find . -name "*.ko"); do
+		cp "${j}" tmpdir/
+	done
+
+	# now we go make our wireless module
+	cd "${ANDROID_BUILD_TOP}/system/wlan/ti/wilink_6_1/platforms/os/linux"
+	# clean an existing wireless module
+	make clean
+	# make the module
+	make
+	# copy it to our output
+	cp tiwlan_drv.ko "${KERNEL_DIR}/tmpdir/"
+
+	# return to the kernel directory
+	cd "${KERNEL_DIR}"
+
+	# now we begin to build our anykernel
+
+	# copy the anykernel stuff
+	cp -a anykernel.tpl tmpdir/anykernel
+	# put the kernel in the right spot
+	cp tmpdir/zImage tmpdir/anykernel/kernel/zImage
+	# copy all of our modules
+	for j in tmpdir/*.ko; do
+		cp "${j}" tmpdir/anykernel/system/lib/modules/
+	done
+	# zip the file
+	cd tmpdir/anykernel
+	zip -r "${KERNEL_DIR}/${i}.zip" .
+	cd "${KERNEL_DIR}"
+
+	# clean temp
+	rm -fr tmpdir
+
+	# move back to the old directory
+	cd "${olddir}"
+done
