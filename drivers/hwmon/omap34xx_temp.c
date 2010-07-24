@@ -107,19 +107,19 @@ static void omap34xx_update(struct omap34xx_data *data)
 
 	if (!data->valid || time_after(jiffies, data->last_updated + (HZ/4))) {
 		int meh; // dummy var needed to appease compiler...
-		clk_enable(data->clk_32k); 
+		clk_enable(data->clk_32k);
 		omap_ctrl_writel(0, OMAP343X_CONTROL_TEMP_SENSOR);
 		temp_sensor_reg = 0x100;
-		__raw_writel(temp_sensor_reg, 0xd8002524);
+		omap_ctrl_writel(temp_sensor_reg, OMAP343X_CONTROL_TEMP_SENSOR);
 
 		if (!wait_for_eocz(EOCZ_MIN_RISING_DELAY, EOCZ_MAX_RISING_DELAY, 1))
 		{
-			__raw_writel(0, 0xd8002524);
+			omap_ctrl_writel(0, OMAP343X_CONTROL_TEMP_SENSOR);
 			data->valid = 0;
 			goto err;
 		}
 
-		__raw_writel(0, 0xd8002524);
+		omap_ctrl_writel(0, OMAP343X_CONTROL_TEMP_SENSOR);
 
 		if (!wait_for_eocz(EOCZ_MIN_FALLING_DELAY, EOCZ_MAX_FALLING_DELAY, 0))
 		{
