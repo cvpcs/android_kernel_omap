@@ -38,7 +38,7 @@ for i in $(ls -1 arch/arm/configs/*sapphire*_defconfig | sed -r "s/^.*\/([^\/]+)
 	make "${i}"
 
 	# make the kernel/modules
-	make
+	make -j4
 
 	# create an output directory
 	mkdir tmpdir
@@ -66,6 +66,9 @@ for i in $(ls -1 arch/arm/configs/*sapphire*_defconfig | sed -r "s/^.*\/([^\/]+)
 
 	# copy the anykernel stuff
 	cp -a anykernel.tpl tmpdir/anykernel
+	# ensure needed directories are there
+	mkdir -p tmpdir/anykernel/kernel/zImage
+	mkdir -p tmpdir/anykernel/system/lib/modules
 	# put the kernel in the right spot
 	cp tmpdir/zImage tmpdir/anykernel/kernel/zImage
 	# copy all of our modules
