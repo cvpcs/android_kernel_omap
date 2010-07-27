@@ -42,7 +42,7 @@
 /* maximum delay for EOCZ rise after SOC rise is
  * 14 cycles of the 32.768Khz clock 
  * changed to 30 to allow for clock stabilization */
-#define EOCZ_MAX_RISING_DELAY (30 * 30518)
+#define EOCZ_MAX_RISING_DELAY (40 * 30518)
 
 /* minimum delay for EOCZ falling is
  * 36 cycles of the 32.768Khz clock */
@@ -103,37 +103,33 @@ static void omap34xx_update(struct omap34xx_data *data)
 	u32 temp_sensor_reg;
 
 	mutex_lock(&data->update_lock);
-	omap_ctrl_writel(0, OMAP343X_CONTROL_TEMP_SENSOR);
 
-	if (!data->valid || time_after(jiffies, data->last_updated + (HZ/4))) {
-		int meh; // dummy var needed to appease compiler...
+	if (!data->valid
+	    || time_after(jiffies, data->last_updated + HZ)) {
+
 		clk_enable(data->clk_32k);
-		omap_ctrl_writel(0, OMAP343X_CONTROL_TEMP_SENSOR);
-		temp_sensor_reg = 0x100;
+
+		temp_sensor_reg = omap_ctrl_readl(OMAP343X_CONTROL_TEMP_SENSOR);
+		temp_sensor_reg |= TEMP_SENSOR_SOC;
 		omap_ctrl_writel(temp_sensor_reg, OMAP343X_CONTROL_TEMP_SENSOR);
 
-		if (!wait_for_eocz(EOCZ_MIN_RISING_DELAY, EOCZ_MAX_RISING_DELAY, 1))
-		{
-			omap_ctrl_writel(0, OMAP343X_CONTROL_TEMP_SENSOR);
-			data->valid = 0;
-			goto err;
-		}
+		wait_for_eocz(EOCZ_MIN_RISING_DELAY, EOCZ_MAX_RISING_DELAY, 1);
 
-		omap_ctrl_writel(0, OMAP343X_CONTROL_TEMP_SENSOR);
+		temp_sensor_reg = omap_ctrl_readl(OMAP343X_CONTROL_TEMP_SENSOR);
+		temp_sensor_reg &= ~TEMP_SENSOR_SOC;
+		omap_ctrl_writel(temp_sensor_reg, OMAP343X_CONTROL_TEMP_SENSOR);
 
-		if (!wait_for_eocz(EOCZ_MIN_FALLING_DELAY, EOCZ_MAX_FALLING_DELAY, 0))
-		{
-			data->valid = 0;
+		if (!wait_for_eocz(EOCZ_MIN_FALLING_DELAY,
+					EOCZ_MAX_FALLING_DELAY, 0))
 			goto err;
-		}
+
 		data->temp = omap_ctrl_readl(OMAP343X_CONTROL_TEMP_SENSOR) &
 						((1<<7) - 1);
 		data->last_updated = jiffies;
 		data->valid = 1;
 
 err:
-		//clk_disable(data->clk_32k); //caused adc to hang after first read durring early testing, might be able to re-enable with no ill effects.
-		meh = 1; //needed to appease the compiler, original statement above
+		clk_disable(data->clk_32k);
 	}
 
 	mutex_unlock(&data->update_lock);
