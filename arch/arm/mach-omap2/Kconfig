@@ -171,8 +171,8 @@ choice
 	config SHOLES_OC_MAX_1250
 		bool "1250 mhz"
 
-	config SHOLES_OC_MAX_1300
-		bool "1300 mhz"
+	config SHOLES_OC_MAX_1320
+		bool "1320 mhz"
 
 endchoice
 

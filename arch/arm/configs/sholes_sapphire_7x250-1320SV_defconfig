@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Thu Jul 22 09:52:56 2010
+# Thu Jul 22 09:49:59 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -262,10 +262,10 @@ CONFIG_SHOLES_OC_MIN_250=y
 # CONFIG_SHOLES_OC_MAX_1100 is not set
 # CONFIG_SHOLES_OC_MAX_1200 is not set
 # CONFIG_SHOLES_OC_MAX_1250 is not set
-CONFIG_SHOLES_OC_MAX_1300=y
+CONFIG_SHOLES_OC_MAX_1320=y
 # CONFIG_SHOLES_OC_LV is not set
-# CONFIG_SHOLES_OC_SV is not set
-CONFIG_SHOLES_OC_IV=y
+CONFIG_SHOLES_OC_SV=y
+# CONFIG_SHOLES_OC_IV is not set
 # CONFIG_MACH_CM_T35 is not set
 # CONFIG_MACH_IGEP0020 is not set
 # CONFIG_MACH_OMAP_3630SDP is not set
