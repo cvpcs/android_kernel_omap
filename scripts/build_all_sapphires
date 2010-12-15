@@ -1,59 +1,33 @@
 #!/bin/bash
 
-BUILD_CONFIGS="${@}"
-
-# guarantee some basic exported stuffs
 if [ "${ARCH}" != "arm" ] ; then
-	export ARCH="arm"
-	echo "ARCH has been set to \"${ARCH}\""
-fi
-if [ "${HOST_PLATFORM}" != "zoom2" ] ; then
-	export HOST_PLATFORM="zoom2"
-	echo "HOST_PLATFORM has been set to \"${HOST_PLATFORM}\""
-fi
-if [ -z "${KERNEL_DIR}" ] ; then
-	export KERNEL_DIR="$(cd "$(dirname "${0}")/../"; pwd)"
-	echo "KERNEL_DIR has been set to \"${KERNEL_DIR}\""
-fi
-if [ -z "${CROSS_COMPILE}" ] ; then
-	export CROSS_COMPILE="arm-eabi-"
-	echo "CROSS_COMPILE has been set to \"${CROSS_COMPILE}\""
+	echo "you must export ARCH as 'arm'"
+	exit 1
 fi
 
-# ensure some android build stuff has been defined
+if [ "${HOST_PLATFORM}" != "zoom2" ] ; then
+	echo "you must export HOST_PLATFORM as 'zoom2'"
+	exit 1
+fi
+
+if [ -z "${KERNEL_DIR}" ] ; then
+	echo "you must export your KERNEL_DIR"
+	exit 1
+fi
+
+if [ -z "${CROSS_COMPILE}" ] ; then
+	echo "you must export CROSS_COMPLIE as 'arm-eabi-'"
+	exit 1
+fi
+
 if [ -z "${ANDROID_BUILD_TOP}" ] ; then
 	echo "you must run build/envsetup.sh as well as lunch, to set some android envs"
 	exit 1
-else
-	echo "ANDROID_BUILD_TOP was found to be \"${ANDROID_BUILD_TOP}\""
 fi
 
-REQUIRED_PROPS="etc/wifi/fw_wlan1271.bin \
-		etc/wifi/tiwlan.ini"
+olddir=$(pwd)
 
-# we now perform a few contingency checks (make sure some props are available that we need)
-for prop in ${REQUIRED_PROPS} ; do
-	if [ ! -f "${ANDROID_BUILD_TOP}/device/motorola/sholes/proprietary/$(basename "${prop}")" ] ; then
-		echo "Failed to locate a required proprietary file: ${prop}"
-		exit 1
-	fi
-done
-
-olddir="$(pwd)"
-
-if [ -z "${BUILD_CONFIGS}" ] ; then
-	BUILD_CONFIGS=$(ls -1 "${KERNEL_DIR}"/arch/arm/configs/*sapphire*_defconfig | sed -r "s/^.*\/([^\/]+)$/\1/")
-fi
-
-for i in ${BUILD_CONFIGS}; do
-	# verify the config exists
-	if [ ! -f "${KERNEL_DIR}/arch/arm/configs/${i}" ] ; then
-		echo "The specified config [${i}] could not be found.  Skipping..."
-		continue
-	fi
-
-	echo "Building ${i} ..."
-
+for i in $(ls -1 arch/arm/configs/*sapphire*_defconfig | sed -r "s/^.*\/([^\/]+)$/\1/"); do
 	# move to the kernel directory
 	cd "${KERNEL_DIR}"
 
@@ -102,13 +76,6 @@ for i in ${BUILD_CONFIGS}; do
 	for j in tmpdir/*.ko; do
 		cp "${j}" tmpdir/anykernel/system/lib/modules/
 	done
-
-	# copy any required props
-	for prop in ${REQUIRED_PROPS} ; do
-		mkdir -p "tmpdir/anykernel/system/$(dirname "${prop}")"
-		cp "${ANDROID_BUILD_TOP}/device/motorola/sholes/proprietary/$(basename "${prop}")" "tmpdir/anykernel/system/${prop}"
-	done
-
 	# zip the file
 	cd tmpdir/anykernel
 	zip -r "${KERNEL_DIR}/${i}.zip" .
