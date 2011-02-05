@@ -1421,6 +1421,9 @@ static int omapfb_alloc_fbmem_display(struct fb_info *fbi, unsigned long size,
 		bytespp = 2;
 		break;
 	case 24:
+#ifdef CONFIG_FB_OMAP2_32_BPP
+	case 32:
+#endif
 		bytespp = 4;
 		break;
 	default:
@@ -1813,6 +1816,9 @@ static int omapfb_fb_init(struct omapfb2_device *fbdev, struct fb_info *fbi)
 				var->bits_per_pixel = 16;
 				break;
 			case 24:
+#ifdef CONFIG_FB_OMAP2_32_BPP
+			case 32:
+#endif
 				var->bits_per_pixel = 32;
 				break;
 			default:

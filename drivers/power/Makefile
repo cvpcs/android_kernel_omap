@@ -33,3 +33,5 @@ obj-$(CONFIG_CHARGER_CPCAP)	+= cpcap-charger.o
 obj-$(CONFIG_CHARGER_CPCAP)	+= cpcap-usb-charger.o
 obj-$(CONFIG_CHARGER_CPCAP)	+= cpcap-factory.o
 obj-$(CONFIG_BATTERY_CPCAP)	+= cpcap-battery.o
+obj-$(CONFIG_BATTERY_MAX17042)	+= max17042_battery.o
+obj-$(CONFIG_CHARGER_MAX8903)	+= max8903_charger.o

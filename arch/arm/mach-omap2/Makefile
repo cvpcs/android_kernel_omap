@@ -71,6 +71,10 @@ obj-$(CONFIG_MACH_OMAP3_BEAGLE)		+= board-omap3beagle.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP_LDP)		+= board-ldp.o \
 					   mmc-twl4030.o
+obj-$(CONFIG_MACH_OMAP3621_EVT1A)       += board-3621_evt1a.o \
+                                           mmc-twl4030.o \
+                                           board-ldp-flash.o \
+                                           board-boxer-wifi.o
 obj-$(CONFIG_MACH_OVERO)		+= board-overo.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP3EVM)		+= board-omap3evm.o \

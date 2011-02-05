@@ -895,6 +895,9 @@ enum omap34xx_index {
 	/* SYS_NIRQ T2 INT1 */
 	AF26_34XX_SYS_NIRQ,
 
+	/* PWM */
+	N8_34XX_GPIO58_PWM,
+
 	/* EHCI GPIO's for OMAP3EVM (Rev >= E) */
 	AH14_34XX_GPIO21,
 	AF9_34XX_GPIO22,

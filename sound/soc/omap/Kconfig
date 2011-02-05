@@ -99,3 +99,12 @@ config SND_OMAP_SOC_ZOOM2
 	help
 	  Say Y if you want to add support for Soc audio on Zoom2 board.
 
+config SND_OMAP_SOC_DAC3100
+	tristate "SoC DAC3100 Audio support"
+	depends on SND_OMAP_SOC
+	select SND_OMAP_SOC_MCBSP
+	select SND_SOC_DAC3100
+	help
+	  Say Y if you want to add support for DAC3100 Soc audio.
+
+

@@ -546,4 +546,15 @@ config TOUCHSCREEN_QUANTUM_OBP
 
 	  If unsure, say N.
 
+config TOUCHSCREEN_CYTTSP_I2C
+	tristate "Cypress TTSP based touchscreens"
+	depends on I2C
+	help
+	  Say Y here if you a Cypress TTSP based touchscreen.
+
+	  If unsure, say N.
 endif
+
+
+
+
