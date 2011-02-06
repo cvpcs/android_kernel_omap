@@ -709,6 +709,6 @@ cache_pred_disable_mask:
 control_stat:
 	.word	CONTROL_STAT
 control_mem_rta:
-	.word   CONTROL_MEM_RTA_CTRL
+	.word	CONTROL_MEM_RTA_CTRL
 ENTRY(omap34xx_cpu_suspend_sz)
 	.word	. - omap34xx_cpu_suspend
