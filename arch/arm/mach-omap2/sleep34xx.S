@@ -103,12 +103,12 @@ ENTRY(get_restore_pointer_sz)
 
 	.text
 /* Function call to get the restore pointer for 3630 resume from OFF */
-ENTRY(get_omap3630_restore_pointer)
-	stmfd   sp!, {lr}     @ save registers on stack
-	adr     r0, restore_3630
-	ldmfd   sp!, {pc}     @ restore regs and return
-ENTRY(get_omap3630_restore_pointer_sz)
-	.word   . - get_omap3630_restore_pointer_sz
+#ENTRY(get_omap3630_restore_pointer)
+#	stmfd   sp!, {lr}     @ save registers on stack
+#	adr     r0, restore_3630
+#	ldmfd   sp!, {pc}     @ restore regs and return
+#ENTRY(get_omap3630_restore_pointer_sz)
+#	.word   . - get_omap3630_restore_pointer_sz
 
 /* Function call to get the restore pointer for for ES3 to resume from OFF */
 ENTRY(get_es3_restore_pointer)
@@ -255,18 +255,20 @@ copy_to_sram:
 	bne	copy_to_sram
 	ldr	r1, sram_base
 	blx	r1
-restore_3630:
+
+#restore_3630:
 	/* Disable rta before giving control */
 	/* Only for coreoff, rta is enabled by HW. So disable rta , if coreoff happened.*/
-	ldr     r1, pm_prepwstst_core_p
-	ldr     r2, [r1]
-	and     r2, r2, #0x3
-	cmp     r2, #0x0
-	bne     restore
-	ldr     r1, control_mem_rta
-	mov     r2, #OMAP36XX_RTA_DISABLE
-	str     r2, [r1]
+#	ldr     r1, pm_prepwstst_core_p
+#	ldr     r2, [r1]
+#	and     r2, r2, #0x3
+#	cmp     r2, #0x0
+#	bne     restore
+#	ldr     r1, control_mem_rta
+#	mov     r2, #OMAP36XX_RTA_DISABLE
+#	str     r2, [r1]
 	/* Fall thru for the remaining logic */
+
 restore:
 	/* b restore*/  @ Enable to debug restore code
         /* Check what was the reason for mpu reset and store the reason in r9*/
@@ -708,7 +710,5 @@ cache_pred_disable_mask:
 	.word	0xFFFFE7FB
 control_stat:
 	.word	CONTROL_STAT
-control_mem_rta:
-	.word	CONTROL_MEM_RTA_CTRL
 ENTRY(omap34xx_cpu_suspend_sz)
 	.word	. - omap34xx_cpu_suspend
