@@ -122,4 +122,16 @@ config BATTERY_CPCAP
 	help
 	 Say Y to include support for CPCAP Main Battery.
 
+config BATTERY_MAX17042
+	tristate "MAX17042 gas gauge driver"
+	depends on I2C
+	help
+	  Say Y here to enable support for chip MAX17042 gas gauge.
+
+config CHARGER_MAX8903
+	tristate "MAX8903 charger driver"
+	depends on BATTERY_MAX17042 && GENERIC_GPIO
+	help
+	  Say Y here to enable support for MAXIM8903 charger 
+
 endif # POWER_SUPPLY

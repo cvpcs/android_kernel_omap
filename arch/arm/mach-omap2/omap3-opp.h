@@ -4,17 +4,29 @@
 #include <plat/omap-pm.h>
 
 /* MPU speeds */
-#define S1000M	1000000000
-#define S800M	800000000
-#define S720M   720000000
-#define S600M   600000000
-#define S550M   550000000
-#define S520M   520000000
-#define S500M   500000000
-#define S300M	300000000
-#define S250M   250000000
-#define S150M	150000000
-#define S125M   125000000
+#define S1300M 1300000000
+#define S1275M 1275000000
+#define S1250M 1250000000
+#define S1200M 1200000000
+#define S1150M 1150000000
+#define S1100M 1100000000
+#define S1050M 1050000000
+#define S1000M 1000000000
+#define S950M 950000000
+#define S900M 900000000
+#define S850M 850000000
+#define S800M 800000000
+#define S750M 750000000
+#define S700M 700000000
+#define S650M 650000000
+#define S600M 600000000
+#define S550M 550000000
+#define S500M 500000000
+#define S450M 450000000
+#define S400M 400000000
+#define S300M 300000000
+#define S250M 250000000
+#define S125M 125000000
 
 /* DSP speeds */
 #define S875M   875000000
@@ -140,6 +152,42 @@ static struct omap_opp omap3_dsp_rate_table_3440[] = {
 	{S430M, VDD1_OPP5, 0x3C},
 	/*OPP6*/
 	{S520M, VDD1_OPP6, 0x3C},
+};
+
+static struct omap_opp omap3621_mpu_rate_table[] = {
+	{0, 0, 0},
+	/*OPP1 (OPP50) - 0.93mV*/
+	{S300M, VDD1_OPP1, 0x20},
+	/*OPP2 (OPP100) - 1.1V*/
+	{S600M, VDD1_OPP2, 0x2d},
+	/*OPP3 (OPP130) - 1.26V*/
+	{S800M, VDD1_OPP3, 0x38},
+	/*OPP4 (OPP-1G) - 1.35V*/
+	{S800M, VDD1_OPP4, 0x3c},
+	/*OPP5 (OPP-1G) - 1.35V*/
+	{S800M, VDD1_OPP5, 0x3c},
+};
+
+static struct omap_opp omap3621_l3_rate_table[] = {
+	{0, 0, 0},
+	/*OPP1 (OPP50) - 0.93V*/
+	{S83M, VDD2_OPP1, 0x1e},
+	/*OPP2 (OPP100) - 1.1375V*/
+	{S166M, VDD2_OPP2, 0x2d},
+};
+
+static struct omap_opp omap3621_dsp_rate_table[] = {
+	{0, 0, 0},
+	/*OPP1 (OPP50) - 0.93V*/
+	{S260M, VDD1_OPP1, 0x20},
+	/*OPP2 (OPP100) - 1.1V*/
+	{S520M, VDD1_OPP2, 0x2d},
+	/*OPP3 (OPP130) - 1.26V*/
+	{S660M, VDD1_OPP3, 0x38},
+	/*OPP4 (OPP-1G) - 1.35V*/
+	{S660M, VDD1_OPP4, 0x3c},
+	/*OPP5 (OPP-1G) - 1.35V*/
+	{S660M, VDD1_OPP5, 0x3c},
 };
 
 #endif

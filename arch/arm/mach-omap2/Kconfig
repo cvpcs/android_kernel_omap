@@ -58,6 +58,18 @@ config MACH_OMAP_LDP
 	bool "OMAP3 LDP board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
+config MACH_SDRAM_HYNIX_H8MBX00U0MER0EM_OR_SAMSUNG_K4X4G303PB
+	bool "Hynix H8MBX00U0MER0EM or Samsung K4X4G303PB DDR memory"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
+config MACH_SDRAM_HYNIX_H8MBX00U0MER0EM
+	bool "Hynix H8MBX00U0MER0EM DDR memory"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
+config MACH_OMAP3621_EVT1A
+	bool "OMAP3621 BOXER board revision EVT1A"
+	depends on ARCH_OMAP3 && ARCH_OMAP34XX
+
 config MACH_OVERO
 	bool "Gumstix Overo board"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
