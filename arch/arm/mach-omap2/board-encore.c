@@ -510,7 +510,9 @@ static void encore_backlight_set_power(struct omap_pwm_led_platform_data *self, 
 static struct omap_pwm_led_platform_data boxer_backlight_data = {
 	.name = "lcd-backlight",
 	.intensity_timer = 8,
-	.blink_timer = 8,
+	.def_on = 0,
+	.def_brightness = DEFAULT_BACKLIGHT_BRIGHTNESS,
+	.blink_timer = 0,
 	.set_power = encore_backlight_set_power, 
 };
 
@@ -533,7 +535,7 @@ static void boxer_backlight_init(void)
 {
 	printk("Enabling backlight PWM for LCD\n");
 
-//	boxer_backlight_data.def_on = 1; // change the PWM polarity
+	boxer_backlight_data.def_on = 1; // change the PWM polarity
         gpio_request(LCD_BACKLIGHT_EN_EVT2, "lcd backlight evt2");
 
 	omap_cfg_reg(N8_34XX_GPIO58_PWM);

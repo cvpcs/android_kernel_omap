@@ -32,8 +32,6 @@
 #include <mach/irqs.h>
 #include <plat/mux.h>
 #include <plat/usb.h>
-#include <plat/omap-pm.h>
-#include <plat/omap34xx.h>
 #include "omap3-opp.h"
 
 

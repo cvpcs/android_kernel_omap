@@ -51,8 +51,8 @@ static void omap_pwm_led_set_blink(struct omap_pwm_led *led)
 {
 	int def_on = 1;
 
-//	if ( led->pdata )
-//		def_on = led->pdata->def_on;
+	if ( led->pdata )
+		def_on = led->pdata->def_on;
 
 	if (!led->powered)
 		return;
@@ -137,8 +137,8 @@ static void omap_pwm_led_set_pwm_cycle(struct omap_pwm_led *led, int cycle)
 	unsigned int timerval;
 	int def_on = 1;
 
-//	if ( led->pdata )
-//		def_on = led->pdata->def_on;
+	if ( led->pdata )
+		def_on = led->pdata->def_on;
 
 	if (cycle == 0)
 		n = 0xff;
@@ -279,15 +279,15 @@ static int omap_pwm_led_probe(struct platform_device *pdev)
 	led->cdev.default_trigger = NULL;
 	led->cdev.name = pdata->name;
 	led->pdata = pdata;
-//	led->brightness = pdata->def_brightness;
+	led->brightness = pdata->def_brightness;
 	INIT_WORK(&led->work, omap_pwm_led_work);
 
 	dev_info(&pdev->dev, "OMAP PWM LED (%s) at GP timer %d/%d\n",
 		 pdata->name, pdata->intensity_timer, pdata->blink_timer);
 	 
-//	if (pdata->def_brightness) {
-//		led->cdev.brightness = pdata->def_brightness;
-//	}
+	if (pdata->def_brightness) {
+		led->cdev.brightness = pdata->def_brightness;
+	}
 	/* register our new led device */
 	ret = led_classdev_register(&pdev->dev, &led->cdev);
 	if (ret < 0) {
