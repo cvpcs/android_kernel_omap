@@ -337,10 +337,10 @@ void omap_pm_if_exit(void)
 
 u8 omap_pm_get_max_vdd1_opp()
 {
-	if (cpu_is_omap3630()) {
-		return VDD1_OPP2;
-	} else if (cpu_is_omap3621()) {
+    if (cpu_is_omap3621()) {
         return VDD1_OPP3;
+    } else if (cpu_is_omap3630()) {
+		return VDD1_OPP2;
     } else {
 		return VDD1_OPP7;
 	}
