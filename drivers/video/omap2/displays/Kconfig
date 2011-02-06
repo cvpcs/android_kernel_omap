@@ -45,7 +45,7 @@ config PANEL_MAPPHONE_HDTV
         help
 	  HDTV Panel used in Mapphone
 
-cconfig PANEL_BOXER
+config PANEL_BOXER
 	tristate "TI Boxer Panel"
 	help
 	  LCD Panel used in the TI Boxer
