@@ -32,6 +32,11 @@
 #include <mach/irqs.h>
 #include <plat/mux.h>
 #include <plat/usb.h>
+#include <plat/omap-pm.h>
+#include <plat/omap34xx.h>
+#include "omap3-opp.h"
+
+
 
 #define OTG_SYSCONFIG	   0x404
 #define OTG_SYSC_SOFTRESET BIT(1)
@@ -238,6 +243,16 @@ void __init usb_musb_init(void)
 		musb_resources[0].start = OMAP243X_HS_BASE;
 	else
 		musb_resources[0].start = OMAP34XX_HSUSB_OTG_BASE;
+	
+	if (cpu_is_omap3630()) {
+		musb_plat.max_vdd1_opp = S600M;
+		musb_plat.min_vdd1_opp = S300M;
+	} else if (cpu_is_omap3430()) {
+		musb_plat.max_vdd1_opp = S500M;
+		musb_plat.min_vdd1_opp = S125M;
+	} else
+		musb_plat.set_vdd1_opp = NULL;
+	
 	musb_resources[0].end = musb_resources[0].start + SZ_8K - 1;
 
 	/*
