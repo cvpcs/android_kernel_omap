@@ -87,13 +87,13 @@ struct {
 	u8 mask;
 } kxtf9_odr_table[] = {
 	{
-	3,	ODR800F}, {
-	5,	ODR400F}, {
-	10,	ODR200F}, {
-	20,	ODR100F}, {
-	40,	ODR50F}, {
-	80,	ODR25F}, {
-	0,	ODR12_5F},
+	3,	ODR800}, {
+	5,	ODR400}, {
+	10,	ODR200}, {
+	20,	ODR100}, {
+	40,	ODR50}, {
+	80,	ODR25}, {
+	0,	ODR12_5},
 };
 
 struct kxtf9_data {

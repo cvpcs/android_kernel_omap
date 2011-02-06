@@ -70,9 +70,9 @@
 #define OTDT200			0x08
 #define OTDT400			0x0C
 /* INTERRUPT CONTROL REGISTER 1 BITS */
-#define IEN			0x20	/* interrupt enable */
-#define IEA			0x10	/* interrupt polarity */
-#define IEL			0x08	/* interrupt response */
+#define KXTF9_IEN		0x20	/* interrupt enable */
+#define KXTF9_IEA		0x10	/* interrupt polarity */
+#define KXTF9_IEL		0x08	/* interrupt response */
 #define IEU			0x04	/* alternate unlatched response */
 /* DATA CONTROL REGISTER BITS */
 #define ODR800			0x06	/* lpf output ODR masks */

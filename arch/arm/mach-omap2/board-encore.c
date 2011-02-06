@@ -1074,7 +1074,7 @@ struct kxtf9_platform_data kxtf9_platform_data_here = {
         //. .negate_y       = 0,
         //. .negate_z       = 0,
 
-        .data_odr_init          = ODR12_5F,
+        .data_odr_init          = ODR12_5,
         .ctrl_reg1_init         = KXTF9_G_8G | RES_12BIT | TDTE | WUFE | TPE,
         .int_ctrl_init          = KXTF9_IEN | KXTF9_IEA | KXTF9_IEL,
         .int_ctrl_init          = KXTF9_IEN,
