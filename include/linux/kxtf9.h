@@ -19,6 +19,12 @@
 #ifndef __KXTF9_H__
 #define __KXTF9_H__
 
+#ifdef 	KXTF9_DEBUG
+#define aprintk(fmt, args...)	printk(fmt, ##args)
+#else
+#define aprintk(fmt, args...)
+#endif
+
 #include <linux/ioctl.h>  /* For IOCTL macros */
 
 /** This define controls compilation of the master device interface */
@@ -44,6 +50,9 @@
 #define KXTF9_G_2G 		0x00
 #define KXTF9_G_4G 		0x08
 #define KXTF9_G_8G 		0x10
+#define SHIFT_ADJ_2G		4
+#define SHIFT_ADJ_4G		3
+#define SHIFT_ADJ_8G		2
 #define TPE			0x01	/* tilt position function enable bit */
 #define WUFE			0x02	/* wake-up function enable bit */
 #define TDTE			0x04	/* tap/double-tap function enable bit */
@@ -82,6 +91,7 @@ struct kxtf9_platform_data {
 	int min_interval;
 
 	u8 g_range;
+	u8 shift_adj;
 
 	u8 axis_map_x;
 	u8 axis_map_y;
