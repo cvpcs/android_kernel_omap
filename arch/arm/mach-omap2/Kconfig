@@ -66,8 +66,8 @@ config MACH_SDRAM_HYNIX_H8MBX00U0MER0EM
 	bool "Hynix H8MBX00U0MER0EM DDR memory"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
-config MACH_OMAP3621_EVT1A
-	bool "OMAP3621 BOXER board revision EVT1A"
+config MACH_ENCORE
+	bool "Barnes & Noble Encore (Nook Color)"
 	depends on ARCH_OMAP3 && ARCH_OMAP34XX
 
 config MACH_OVERO
@@ -88,7 +88,7 @@ config MACH_OMAP3_PANDORA
 
 config WIFI_CONTROL_FUNC
 	bool "Enable WiFi control function abstraction"
-	depends on MACH_OMAP_ZOOM2 || MACH_SHOLES || MACH_OMAP3621_EVT1A
+	depends on MACH_OMAP_ZOOM2 || MACH_SHOLES || MACH_ENCORE
         help
 	   Enables Power/Reset/Carddetect function abstraction
 
@@ -222,8 +222,8 @@ config MACH_OMAP_4430SDP
 
 config WLAN_POWER_EVT1
 	bool "WLAN power support"
-	depends on MACH_OMAP3621_EVT1A
+	depends on MACH_ENCORE
 	default "y"
 	help
-	  Has to be set for EVT1A board.
+	  Has to be set for B&N Encore board.
 

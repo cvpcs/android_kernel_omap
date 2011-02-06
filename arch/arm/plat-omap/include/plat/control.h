@@ -204,6 +204,11 @@
 /* 36xx-only GENERAL_WKUP register offsets */
 #define OMAP36XX_CONTROL_PROG_IO_WKUP1 (OMAP343X_CONTROL_GENERAL_WKUP + 0x020)
 
+/* 36xx-only RTA */
+#define OMAP36XX_CONTROL_MEM_RTA_CTRL	0x40C
+#define OMAP36XX_RTA_ENABLE		0x1
+#define OMAP36XX_RTA_DISABLE		0x0
+
 /* 34xx D2D idle-related pins, handled by PM core */
 #define OMAP3_PADCONF_SAD2D_MSTANDBY   0x250
 #define OMAP3_PADCONF_SAD2D_IDLEACK    0x254
@@ -334,6 +339,7 @@ extern void omap_ctrl_writel(u32 val, u16 offset);
 extern void omap3_save_scratchpad_contents(void);
 extern void omap3_clear_scratchpad_contents(void);
 extern u32 *get_restore_pointer(void);
+extern u32 *get_omap3630_restore_pointer(void);
 extern u32 *get_es3_restore_pointer(void);
 extern u32 omap3_arm_context[128];
 extern void omap3_control_save_context(void);

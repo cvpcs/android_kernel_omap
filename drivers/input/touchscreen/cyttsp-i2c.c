@@ -45,9 +45,9 @@
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif /* CONFIG_HAS_EARLYSUSPEND */
-#ifdef CONFIG_MACH_OMAP3621_EVT1A
+#ifdef CONFIG_MACH_ENCORE
 #include <linux/regulator/consumer.h>
-#endif /* CONFIG_MACH_OMAP3621_EVT1A */
+#endif /* CONFIG_MACH_ENCORE */
 
 #define CY_DECLARE_GLOBALS
 
@@ -80,9 +80,9 @@ struct cyttsp {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
-#ifdef CONFIG_MACH_OMAP3621_EVT1A
+#ifdef CONFIG_MACH_ENCORE
 	struct regulator *reg;
-#endif /* CONFIG_MACH_OMAP3621_EVT1A */
+#endif /* CONFIG_MACH_ENCORE */
 };
 static u8 irq_cnt;		/* comparison counter with register valuw */
 static u32 irq_cnt_total;	/* total interrupts */
@@ -2473,7 +2473,7 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
 	}
 
 	/* allocate and clear memory */
-#ifdef CONFIG_MACH_OMAP3621_EVT1A
+#ifdef CONFIG_MACH_ENCORE
     ts->reg = regulator_get(NULL, "vtp");
 
     if (IS_ERR(ts->reg)) {
@@ -2489,7 +2489,7 @@ static int __devinit cyttsp_probe(struct i2c_client *client,
         goto err2;
     }
 
-#endif /* CONFIG_MACH_OMAP3621_EVT1A */
+#endif /* CONFIG_MACH_ENCORE */
 	#define OMAP_CYTTSP_RESET_GPIO 46
 	mdelay(100);
 	cyttsp_info("Reseting TMA340\n");	
@@ -2641,7 +2641,7 @@ static int cyttsp_suspend(struct i2c_client *client, pm_message_t message)
 	if (retval)
 		enable_irq(ts->client->irq);
 
-#ifdef CONFIG_MACH_OMAP3621_EVT1A
+#ifdef CONFIG_MACH_ENCORE
     retval = regulator_disable(ts->reg);
 #else
 	if (!(retval < CY_OK)) {
@@ -2657,17 +2657,17 @@ static int cyttsp_suspend(struct i2c_client *client, pm_message_t message)
 				sizeof(sleep_mode), &sleep_mode);
 		}
 	}
-#endif /* CONFIG_MACH_OMAP3621_EVT1A */
+#endif /* CONFIG_MACH_ENCORE */
 
 	if (!(retval < CY_OK)) {
 		if (sleep_mode == CY_DEEP_SLEEP_MODE)
 			ts->platform_data->power_state = CY_SLEEP_STATE;
 		else if (sleep_mode == CY_LOW_PWR_MODE)
 			ts->platform_data->power_state = CY_LOW_PWR_STATE;
-#ifdef CONFIG_MACH_OMAP3621_EVT1A
+#ifdef CONFIG_MACH_ENCORE
         else // is off
             ts->platform_data->power_state = CY_POWER_OFF_STATE;
-#endif /* CONFIG_MACH_OMAP3621_EVT1A */
+#endif /* CONFIG_MACH_ENCORE */
 	}
 
 	cyttsp_debug("Sleep Power state is %s\n", \
@@ -2711,13 +2711,13 @@ static int __devexit cyttsp_remove(struct i2c_client *client)
 	unregister_early_suspend(&ts->early_suspend);
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
-#ifdef CONFIG_MACH_OMAP3621_EVT1A
+#ifdef CONFIG_MACH_ENCORE
     if (ts->platform_data->power_state != CY_POWER_OFF_STATE) {
         regulator_disable(ts->reg);
     }
 
     regulator_put(ts->reg);
-#endif /* CONFIG_MACH_OMAP3621_EVT1A */
+#endif /* CONFIG_MACH_ENCORE */
 
 	/* housekeeping */
 	sysfs_remove_group(&client->dev.kobj, &ttsp_attribute_group);

@@ -403,9 +403,9 @@
 #define CY_ACTIVE_STATE		1
 #define CY_LOW_PWR_STATE		2
 #define CY_SLEEP_STATE		3
-#ifdef CONFIG_MACH_OMAP3621_EVT1A
-#define CY_POWER_OFF_STATE        4 /* EVT1A specific state, regulator has turned touch panel off. */
-#endif /* CONFIG_MACH_OMAP3621_EVT1A */
+#ifdef CONFIG_MACH_ENCORE
+#define CY_POWER_OFF_STATE        4 /* encore specific state, regulator has turned touch panel off. */
+#endif /* CONFIG_MACH_ENCORE */
 
 /* device mode bits */
 #define CY_OP_MODE		0x00

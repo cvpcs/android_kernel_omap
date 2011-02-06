@@ -86,11 +86,11 @@
 #include "omap3-opp.h"
 #include "prcm-common.h"
 
-#if defined(CONFIG_MACH_OMAP3621_EVT1A) && defined (CONFIG_MACH_SDRAM_HYNIX_H8MBX00U0MER0EM_OR_SAMSUNG_K4X4G303PB)
+#if defined(CONFIG_MACH_ENCORE) && defined (CONFIG_MACH_SDRAM_HYNIX_H8MBX00U0MER0EM_OR_SAMSUNG_K4X4G303PB)
 #include "sdram-samsung-k4x4g303pb-or-hynix-h8mbx00u0mer-0em.h"
-#elif defined(CONFIG_MACH_OMAP3621_EVT1A) && defined (CONFIG_MACH_SDRAM_SAMSUNG_K4X4G303PB)
+#elif defined(CONFIG_MACH_ENCORE) && defined (CONFIG_MACH_SDRAM_SAMSUNG_K4X4G303PB)
 #include "sdram-samsung-k4x4g303pb.h"
-#elif defined(CONFIG_MACH_OMAP3621_EVT1A) && defined(CONFIG_MACH_SDRAM_HYNIX_H8MBX00U0MER0EM)
+#elif defined(CONFIG_MACH_ENCORE) && defined(CONFIG_MACH_SDRAM_HYNIX_H8MBX00U0MER0EM)
 #include "sdram-hynix-h8mbx00u0mer-0em.h"
 #endif
 
@@ -622,18 +622,18 @@ static struct platform_device *boxer_devices[] __initdata = {
 
 static void __init omap_boxer_init_irq(void)
 {
-#if defined(CONFIG_MACH_OMAP3621_EVT1A) && defined (CONFIG_MACH_SDRAM_HYNIX_H8MBX00U0MER0EM_OR_SAMSUNG_K4X4G303PB)
+#if defined(CONFIG_MACH_ENCORE) && defined (CONFIG_MACH_SDRAM_HYNIX_H8MBX00U0MER0EM_OR_SAMSUNG_K4X4G303PB)
 	omap2_init_common_hw(	h8mbx00u0mer0em_K4X4G303PB_sdrc_params , NULL,
 				omap3621_mpu_rate_table,
 				omap3621_dsp_rate_table,
 				omap3621_l3_rate_table);
 
-#elif defined(CONFIG_MACH_OMAP3621_EVT1A) && defined(CONFIG_MACH_SDRAM_HYNIX_H8MBX00U0MER0EM)
+#elif defined(CONFIG_MACH_ENCORE) && defined(CONFIG_MACH_SDRAM_HYNIX_H8MBX00U0MER0EM)
 	omap2_init_common_hw(	h8mbx00u0mer0em_sdrc_params , NULL,
 				omap3621_mpu_rate_table,
 				omap3621_dsp_rate_table,
 				omap3621_l3_rate_table);
-#elif defined(CONFIG_MACH_OMAP3621_EVT1A) && defined (CONFIG_MACH_SDRAM_SAMSUNG_K4X4G303PB)
+#elif defined(CONFIG_MACH_ENCORE) && defined (CONFIG_MACH_SDRAM_SAMSUNG_K4X4G303PB)
 	omap2_init_common_hw(	samsung_k4x4g303pb_sdrc_params, NULL,
 				omap3621_mpu_rate_table,
 				omap3621_dsp_rate_table,
@@ -1030,7 +1030,7 @@ void machine_emergency_restart(void)
 
 static void kxtf9_dev_init(void)
 {
-	printk("board-3621_evt1a.c: kxtf9_dev_init ...\n");
+	printk("board-encore.c: kxtf9_dev_init ...\n");
 
 //	if (gpio_request(KXTF9_GPIO_FOR_PWR, "kxtf9_pwr") < 0) {
 //		printk(KERN_ERR "+++++++++++++ Can't get GPIO for kxtf9 power\n");
@@ -1044,7 +1044,7 @@ static void kxtf9_dev_init(void)
 		return;
 	}
 
-	printk("board-3621_evt1a.c: kxtf9_dev_init > Init kxtf9 irq pin %d !\n", KXTF9_GPIO_FOR_IRQ);
+	printk("board-encore.c: kxtf9_dev_init > Init kxtf9 irq pin %d !\n", KXTF9_GPIO_FOR_IRQ);
 	gpio_direction_input(KXTF9_GPIO_FOR_IRQ);
 	omap_set_gpio_debounce(KXTF9_GPIO_FOR_IRQ, 0);
 }
@@ -1097,14 +1097,14 @@ struct kxtf9_platform_data kxtf9_platform_data_here = {
 #ifdef CONFIG_BATTERY_MAX17042
 static void max17042_dev_init(void)
 {
-        printk("board-3621_evt1a.c: max17042_dev_init ...\n");
+        printk("board-encore.c: max17042_dev_init ...\n");
 
         if (gpio_request(MAX17042_GPIO_FOR_IRQ, "max17042_irq") < 0) {
                 printk(KERN_ERR "Can't get GPIO for max17042 IRQ\n");
                 return;
         }
 
-        printk("board-3621_evt1a.c: max17042_dev_init > Init max17042 irq pin %d !\n", MAX17042_GPIO_FOR_IRQ);
+        printk("board-encore.c: max17042_dev_init > Init max17042 irq pin %d !\n", MAX17042_GPIO_FOR_IRQ);
         gpio_direction_input(MAX17042_GPIO_FOR_IRQ);
         omap_set_gpio_debounce(MAX17042_GPIO_FOR_IRQ, 0);        
         printk("max17042 GPIO pin read %d\n", gpio_get_value(MAX17042_GPIO_FOR_IRQ));
@@ -1196,34 +1196,34 @@ static struct i2c_board_info __initdata boxer_i2c_bus1_info[] = {
 
 static void audio_dac_3100_dev_init(void)
 {
-        printk("board-3621_evt1a.c: audio_dac_3100_dev_init ...\n");
+        printk("board-encore.c: audio_dac_3100_dev_init ...\n");
         if (gpio_request(AUDIO_CODEC_RESET_GPIO, "AUDIO_CODEC_RESET_GPIO") < 0) {
                 printk(KERN_ERR "can't get AUDIO_CODEC_RESET_GPIO \n");
                 return;
         }
 
-        printk("board-3621_evt1a.c: audio_dac_3100_dev_init > set AUDIO_CODEC_RESET_GPIO to output Low!\n");
+        printk("board-encore.c: audio_dac_3100_dev_init > set AUDIO_CODEC_RESET_GPIO to output Low!\n");
         gpio_direction_output(AUDIO_CODEC_RESET_GPIO, 0);
 	gpio_set_value(AUDIO_CODEC_RESET_GPIO, 0);
 
-        printk("board-3621_evt1a.c: audio_dac_3100_dev_init ...\n");
+        printk("board-encore.c: audio_dac_3100_dev_init ...\n");
         if (gpio_request(AUDIO_CODEC_POWER_ENABLE_GPIO, "AUDIO DAC3100 POWER ENABLE") < 0) {
                 printk(KERN_ERR "can't get AUDIO_CODEC_POWER_ENABLE_GPIO \n");
                 return;
         }
 //// 2.7 merge conflict 
-//        printk("board-3621_evt1a.c: audio_dac_3100_dev_init > set AUDIO_CODEC_RESET_GPIO to output High!\n");
+//        printk("board-encore.c: audio_dac_3100_dev_init > set AUDIO_CODEC_RESET_GPIO to output High!\n");
 //       gpio_direction_output(AUDIO_CODEC_RESET_GPIO, 0);
 //// 2.7 merge conflict
 
-        printk("board-3621_evt1a.c: audio_dac_3100_dev_init > set AUDIO_CODEC_POWER_ENABLE_GPIO to output and value high!\n");
+        printk("board-encore.c: audio_dac_3100_dev_init > set AUDIO_CODEC_POWER_ENABLE_GPIO to output and value high!\n");
         gpio_direction_output(AUDIO_CODEC_POWER_ENABLE_GPIO, 0);
 	gpio_set_value(AUDIO_CODEC_POWER_ENABLE_GPIO, 1);
 
 	/* 1 msec delay needed after PLL power-up */
         mdelay (1);
 
-        printk("board-3621_evt1a.c: audio_dac_3100_dev_init > set AUDIO_CODEC_RESET_GPIO to output and value high!\n");
+        printk("board-encore.c: audio_dac_3100_dev_init > set AUDIO_CODEC_RESET_GPIO to output and value high!\n");
 	gpio_set_value(AUDIO_CODEC_RESET_GPIO, 1);
 
 }
@@ -1477,7 +1477,7 @@ static void __init omap_boxer_map_io(void)
 	omap2_map_common_io();
 }
  
-MACHINE_START(OMAP3621_EVT1A, "encore")
+MACHINE_START(ENCORE, "encore")
 	/* phys_io is only used for DEBUG_LL early printing.  The Boxer's
 	 * console is on an external quad UART sitting at address 0x10000000
 	 */

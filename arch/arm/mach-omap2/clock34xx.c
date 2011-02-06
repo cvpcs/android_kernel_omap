@@ -1181,12 +1181,13 @@ int __init omap2_clk_init(void)
 	for (c = omap34xx_clks; c < omap34xx_clks + ARRAY_SIZE(omap34xx_clks); c++)
 		clk_preinit(c->lk.clk);
 
-	for (c = omap34xx_clks; c < omap34xx_clks + ARRAY_SIZE(omap34xx_clks); c++)
+	for (c = omap34xx_clks; c < omap34xx_clks + ARRAY_SIZE(omap34xx_clks); c++) {
 		if (c->cpu & cpu_clkflg) {
 			clkdev_add(&c->lk);
 			clk_register(c->lk.clk);
 			omap2_init_clk_clkdm(c->lk.clk);
 		}
+	}
 
 	/* REVISIT: Not yet ready for OMAP3 */
 #if 0
