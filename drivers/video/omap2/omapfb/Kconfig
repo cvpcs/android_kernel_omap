@@ -35,3 +35,10 @@ config FB_OMAP2_NUM_FBS
 	help
 	  Select the number of framebuffers created. OMAP2/3 has 3 overlays
 	  so normally this would be 3.
+
+config FB_OMAP2_32_BPP
+	bool "Support 32 bpp"
+	default n
+	depends on FB_OMAP2
+	help
+	  Supports 32 bpp for zoom2 panel.
