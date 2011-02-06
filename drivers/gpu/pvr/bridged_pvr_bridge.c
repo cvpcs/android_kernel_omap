@@ -532,8 +532,7 @@ PVRSRVFreeDeviceMemBW(IMG_UINT32 ui32BridgeID,
 {
 	IMG_HANDLE hDevCookieInt;
 	IMG_VOID *pvKernelMemInfo;
-	PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo;	
-	
+
 
 	PVRSRV_BRIDGE_ASSERT_CMD(ui32BridgeID, PVRSRV_BRIDGE_FREE_DEVICEMEM);
 
@@ -557,22 +556,7 @@ PVRSRVFreeDeviceMemBW(IMG_UINT32 ui32BridgeID,
 		return 0;
 	}
 
-	
-	psKernelMemInfo = (PVRSRV_KERNEL_MEM_INFO*)pvKernelMemInfo;
-
-	if (psKernelMemInfo->ui32RefCount == 1)
-	{
-		psRetOUT->eError =
-			PVRSRVFreeDeviceMemKM(hDevCookieInt, pvKernelMemInfo);
-	}
-	else
-	{
-		PVR_DPF((PVR_DBG_WARNING, "PVRSRVFreeDeviceMemBW: mappings are open "
-								  "in other processes, deferring free!"));
-		
-		psKernelMemInfo->bPendingFree = IMG_TRUE;
-		psRetOUT->eError = PVRSRV_OK;
-	}
+	psRetOUT->eError = PVRSRVFreeDeviceMemKM(hDevCookieInt, pvKernelMemInfo);
 
 	if(psRetOUT->eError != PVRSRV_OK)
 	{
@@ -1020,6 +1004,7 @@ PVRSRVWrapExtMemoryBW(IMG_UINT32 ui32BridgeID,
 							  psWrapExtMemIN->bPhysContig,
 							  psSysPAddr,
 							  psWrapExtMemIN->pvLinAddr,
+							  psWrapExtMemIN->ui32Flags,
 							  &psMemInfo);
 	if(psWrapExtMemIN->ui32NumPageTableEntries)
 	{
@@ -1879,6 +1864,7 @@ PVRSRVGetDCSystemBufferBW(IMG_UINT32 ui32BridgeID,
 		return 0;
 	}
 
+	 
 	PVRSRVAllocSubHandleNR(psPerProc->psHandleBase,
 						 &psGetDispClassSysBufferOUT->hBuffer,
 						 hBufferInt,
@@ -1926,6 +1912,7 @@ PVRSRVCreateDCSwapChainBW(IMG_UINT32 ui32BridgeID,
 {
 	IMG_VOID *pvDispClassInfo;
 	IMG_HANDLE hSwapChainInt;
+	IMG_UINT32	ui32SwapChainID;
 
 	PVRSRV_BRIDGE_ASSERT_CMD(ui32BridgeID, PVRSRV_BRIDGE_CREATE_DISPCLASS_SWAPCHAIN);
 
@@ -1942,6 +1929,9 @@ PVRSRVCreateDCSwapChainBW(IMG_UINT32 ui32BridgeID,
 		return 0;
 	}
 
+	
+	ui32SwapChainID = psCreateDispClassSwapChainIN->ui32SwapChainID;
+
 	psCreateDispClassSwapChainOUT->eError = 
 		PVRSRVCreateDCSwapChainKM(psPerProc, pvDispClassInfo, 
 								  psCreateDispClassSwapChainIN->ui32Flags,
@@ -1950,12 +1940,15 @@ PVRSRVCreateDCSwapChainBW(IMG_UINT32 ui32BridgeID,
 								  psCreateDispClassSwapChainIN->ui32BufferCount,
 								  psCreateDispClassSwapChainIN->ui32OEMFlags,
 								  &hSwapChainInt,
-								  &psCreateDispClassSwapChainOUT->ui32SwapChainID);
+								  &ui32SwapChainID);
 
 	if(psCreateDispClassSwapChainOUT->eError != PVRSRV_OK)
 	{
 		return 0;
 	}
+
+	
+	psCreateDispClassSwapChainOUT->ui32SwapChainID = ui32SwapChainID;
 
 	PVRSRVAllocSubHandleNR(psPerProc->psHandleBase, 
 					  &psCreateDispClassSwapChainOUT->hSwapChain, 
@@ -2211,6 +2204,7 @@ PVRSRVGetDCBuffersBW(IMG_UINT32 ui32BridgeID,
 	{
 		IMG_HANDLE hBufferExt;
 
+		 
 		PVRSRVAllocSubHandleNR(psPerProc->psHandleBase,
 							 &hBufferExt,
 							 psGetDispClassBuffersOUT->ahBuffer[i],
@@ -2445,6 +2439,7 @@ PVRSRVGetBCBufferBW(IMG_UINT32 ui32BridgeID,
 		return 0;
 	}
 
+	 
 	PVRSRVAllocSubHandleNR(psPerProc->psHandleBase,
 						 &psGetBufferClassBufferOUT->hBuffer,
 						 hBufferInt,
@@ -2824,7 +2819,9 @@ PVRSRVInitSrvDisconnectBW(IMG_UINT32 ui32BridgeID,
 
 	psRetOUT->eError = PVRSRVFinaliseSystem(psInitSrvDisconnectIN->bInitSuccesful);
 
-	PVRSRVSetInitServerState( PVRSRV_INIT_SERVER_SUCCESSFUL ,(IMG_BOOL)(((psRetOUT->eError == PVRSRV_OK) && (psInitSrvDisconnectIN->bInitSuccesful))));
+	PVRSRVSetInitServerState( PVRSRV_INIT_SERVER_SUCCESSFUL,
+				(((psRetOUT->eError == PVRSRV_OK) && (psInitSrvDisconnectIN->bInitSuccesful)))
+				? IMG_TRUE : IMG_FALSE);
 
 	return 0;
 }

@@ -155,8 +155,7 @@ static int __init omap_cpu_init(struct cpufreq_policy *policy)
 	policy->max = policy->cpuinfo.max_freq;
 	policy->cur = omap_getspeed(0);
 
-	/* FIXME: what's the actual transition time? */
-	policy->cpuinfo.transition_latency = 300 * 1000;
+	policy->cpuinfo.transition_latency = 50 * 1000;
 	return 0;
 }
 

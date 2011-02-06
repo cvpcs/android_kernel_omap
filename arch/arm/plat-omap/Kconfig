@@ -94,19 +94,24 @@ config OMAP_SMARTREFLEX
 	  compensation for VDD1 and VDD2, user must write 1 to
 	  /sys/power/sr_vddX_autocomp, where X is 1 or 2.
 
-config OMAP_SMARTREFLEX_TESTING
-	bool "Smartreflex testing support"
+config OMAP_VC_BYPASS_UPDATE
+	bool "Use VC Bypass method of updating voltage"
 	depends on OMAP_SMARTREFLEX
 	default n
 	help
-	  Say Y if you want to enable SmartReflex testing with SW hardcoded
-	  NVALUES intead of E-fuse NVALUES set in factory silicon testing.
+	  Say Y if you would like to use VC Bypass method of
+	  update. If this is disabled, the default
+	  VP forceupdate method is used.
 
-	  In some devices the E-fuse values have not been set, even though
-	  SmartReflex modules are included. Using these hardcoded values set
-	  in software, one can test the SmartReflex features without E-fuse.
-
-	  WARNING: Enabling this option may cause your device to hang!
+config OMAP_SMARTREFLEX_CLASS1P5
+	bool "Use Smartreflex Class 1.5"
+	depends on OMAP_SMARTREFLEX
+	default n
+	help
+	   Say Y if you would like to use Smart reflex class 1.5
+	   introduces /sys/power/sr_adjust_vsel to
+	   view calibrated voltage and set to 0 will restart
+	   the calibration cycle
 
 config OMAP_RESET_CLOCKS
 	bool "Reset unused clocks during boot"
@@ -153,6 +158,14 @@ config OMAP_MCBSP
 	help
 	  Say Y here if you want support for the OMAP Multichannel
 	  Buffered Serial Port.
+
+config MEM_DUMP
+	bool " memory dump support"
+	depends on ARCH_OMAP
+	default n
+	help
+	Say Y here if you want support for warmreset system when panic
+	happens for memory dump purpose.
 
 config OMAP_MBOX_FWK
 	tristate "Mailbox framework support"

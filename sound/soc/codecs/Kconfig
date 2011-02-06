@@ -136,10 +136,6 @@ config SND_SOC_TLV320AIC26
 config SND_SOC_TLV320AIC3X
 	tristate
 
-config SND_SOC_DAC3100
-	tristate "Texas Instruments DAC3100 codecs support"
-	depends on I2C
-
 config SND_SOC_TWL4030
 	tristate
 

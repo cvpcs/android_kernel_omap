@@ -50,6 +50,9 @@
 
 #if defined(SUPPORT_DRI_DRM)
 #include <drm/drmP.h>
+#if defined(PVR_SECURE_DRM_AUTH_EXPORT)
+#include "env_perproc.h"
+#endif
 #endif
 
 #if defined(PVR_LDM_PLATFORM_MODULE)
@@ -413,6 +416,9 @@ static IMG_INT PVRSRVOpen(struct inode unref__ * pInode, struct file *pFile)
 	IMG_INT iRet = -ENOMEM;
 	PVRSRV_ERROR eError;
 	IMG_UINT32 ui32PID;
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	PVRSRV_ENV_PER_PROCESS_DATA *psEnvPerProc;
+#endif
 
 #if defined(SUPPORT_DRI_DRM)
 	PVR_UNREFERENCED_PARAMETER(dev);
@@ -427,6 +433,15 @@ static IMG_INT PVRSRVOpen(struct inode unref__ * pInode, struct file *pFile)
 	if (PVRSRVProcessConnect(ui32PID) != PVRSRV_OK)
 		goto err_unlock;
 
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	psEnvPerProc = PVRSRVPerProcessPrivateData(ui32PID);
+	if (psEnvPerProc == IMG_NULL)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: No per-process private data", __FUNCTION__));
+		goto err_unlock;
+	}
+#endif
+
 	eError = OSAllocMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 						sizeof(PVRSRV_FILE_PRIVATE_DATA),
 						(IMG_PVOID *)&psPrivateData,
@@ -438,6 +453,11 @@ static IMG_INT PVRSRVOpen(struct inode unref__ * pInode, struct file *pFile)
 
 #if defined(PVR_SECURE_FD_EXPORT)
 	psPrivateData->hKernelMemInfo = NULL;
+#endif
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	psPrivateData->psDRMFile = pFile;
+
+	list_add_tail(&psPrivateData->sDRMAuthListItem, &psEnvPerProc->sDRMAuthListHead);
 #endif
 	psPrivateData->ui32OpenPID = ui32PID;
 	psPrivateData->hBlockAlloc = hBlockAlloc;
@@ -467,6 +487,10 @@ static IMG_INT PVRSRVRelease(struct inode unref__ * pInode, struct file *pFile)
 
 	psPrivateData = PRIVATE_DATA(pFile);
 
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	list_del(&psPrivateData->sDRMAuthListItem);
+#endif
+
 	
 	gui32ReleasePID = psPrivateData->ui32OpenPID;
 	PVRSRVProcessDisconnect(psPrivateData->ui32OpenPID);
@@ -475,6 +499,7 @@ static IMG_INT PVRSRVRelease(struct inode unref__ * pInode, struct file *pFile)
 	OSFreeMem(PVRSRV_OS_NON_PAGEABLE_HEAP,
 			  sizeof(PVRSRV_FILE_PRIVATE_DATA),
 			  psPrivateData, psPrivateData->hBlockAlloc);
+
 	PRIVATE_DATA(pFile) = NULL; 
 
 	LinuxUnLockMutex(&gPVRSRVLock);
@@ -511,6 +536,12 @@ static IMG_INT __init PVRCore_Init(IMG_VOID)
 	{
 		error = -ENOMEM;
 		return error;
+	}
+
+	if (PVROSFuncInit() != PVRSRV_OK)
+	{
+		error = -ENOMEM;
+		goto init_failed;
 	}
 
 	PVRLinuxMUtilsInit();
@@ -649,6 +680,7 @@ init_failed:
 	PVRMMapCleanup();
 	LinuxMMCleanup();
 	LinuxBridgeDeInit();
+	PVROSFuncDeInit();
 	RemoveProcEntries();
 
 	return error;
@@ -720,6 +752,8 @@ static IMG_VOID __exit PVRCore_Cleanup(IMG_VOID)
 	LinuxMMCleanup();
 
 	LinuxBridgeDeInit();
+
+	PVROSFuncDeInit();
 
 	RemoveProcEntries();
 

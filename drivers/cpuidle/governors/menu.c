@@ -163,7 +163,7 @@ static inline int performance_multiplier(void)
 	/* for IO wait tasks (per cpu!) we add 5x each */
 	mult += 10 * nr_iowait_cpu();
 
-	return mult;
+	return mult / 300;
 }
 
 static DEFINE_PER_CPU(struct menu_device, menu_devices);

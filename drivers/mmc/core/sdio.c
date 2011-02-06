@@ -285,7 +285,8 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 	if (host->embedded_sdio_data.cccr)
-		memcpy(&card->cccr, host->embedded_sdio_data.cccr, sizeof(struct sdio_cccr));
+		memcpy(&card->cccr, host->embedded_sdio_data.cccr,
+			sizeof(struct sdio_cccr));
 	else {
 #endif
 		/*
@@ -298,14 +299,15 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 	}
 #endif
 
+	/*
+	 * Read the common CIS tuples.
+	 */
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
 	if (host->embedded_sdio_data.cis)
-		memcpy(&card->cis, host->embedded_sdio_data.cis, sizeof(struct sdio_cis));
+		memcpy(&card->cis, host->embedded_sdio_data.cis,
+			sizeof(struct sdio_cis));
 	else {
 #endif
-		/*
-		 * Read the common CIS tuples.
-		 */
 		err = sdio_read_common_cis(card);
 		if (err)
 			goto remove;

@@ -29,6 +29,7 @@
 #ifdef __KERNEL__
 
 struct lm3554_platform_data {
+	uint32_t flags;
 	u8 torch_brightness_def;
 	u8 flash_brightness_def;
 	u8 flash_duration_def;

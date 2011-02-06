@@ -110,7 +110,7 @@ int ispresizer_request(void);
 
 int ispresizer_free(void);
 
-int ispresizer_config_datapath(enum ispresizer_input input);
+int ispresizer_config_datapath(enum ispresizer_input input, u8 reset);
 
 void ispresizer_enable_cbilin(u8 enable);
 

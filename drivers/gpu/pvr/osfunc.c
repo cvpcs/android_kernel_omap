@@ -53,7 +53,10 @@
 #include <linux/capability.h>
 #include <asm/uaccess.h>
 #include <linux/spinlock.h>
-#if defined(PVR_LINUX_MISR_USING_WORKQUEUE) || defined(PVR_LINUX_MISR_USING_PRIVATE_WORKQUEUE)
+#if defined(PVR_LINUX_MISR_USING_WORKQUEUE) || \
+	defined(PVR_LINUX_MISR_USING_PRIVATE_WORKQUEUE) || \
+	defined(PVR_LINUX_TIMERS_USING_WORKQUEUES) || \
+	defined(PVR_LINUX_USING_WORKQUEUES)
 #include <linux/workqueue.h>
 #endif
 
@@ -66,8 +69,50 @@
 #include "proc.h"
 #include "mutex.h"
 #include "event.h"
+#include "linkage.h"
 
 #define EVENT_OBJECT_TIMEOUT_MS		(100)
+
+#if defined(SUPPORT_CPU_CACHED_BUFFERS) || \
+	defined(SUPPORT_CACHEFLUSH_ON_ALLOC)
+
+#if defined(__i386__)
+static void per_cpu_cache_flush(void *arg)
+{
+    PVR_UNREFERENCED_PARAMETER(arg);
+    wbinvd();
+}
+#endif 
+
+#if !defined(SUPPORT_CPU_CACHED_BUFFERS)
+static
+#endif
+IMG_VOID OSFlushCPUCacheKM(IMG_VOID)
+{
+#if defined(__arm__)
+    flush_cache_all();
+#elif defined(__i386__)
+    
+    on_each_cpu(per_cpu_cache_flush, NULL, 1);
+#else
+#error "Implement full CPU cache flush for this CPU!"
+#endif
+}
+
+#endif 
+#if defined(SUPPORT_CPU_CACHED_BUFFERS)
+
+IMG_VOID OSFlushCPUCacheRangeKM(IMG_VOID *pvRangeAddrStart,
+								IMG_VOID *pvRangeAddrEnd)
+{
+	PVR_UNREFERENCED_PARAMETER(pvRangeAddrStart);
+	PVR_UNREFERENCED_PARAMETER(pvRangeAddrEnd);
+
+	
+	OSFlushCPUCacheKM();
+}
+
+#endif 
 
 #define HOST_ALLOC_MEM_USING_KMALLOC ((IMG_HANDLE)0)
 #define HOST_ALLOC_MEM_USING_VMALLOC ((IMG_HANDLE)1)
@@ -80,29 +125,39 @@ PVRSRV_ERROR OSAllocMem_Impl(IMG_UINT32 ui32Flags, IMG_UINT32 ui32Size, IMG_PVOI
 {
     PVR_UNREFERENCED_PARAMETER(ui32Flags);
 
-    if (phBlockAlloc && ui32Size > PAGE_SIZE) {
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-        *ppvCpuVAddr = _VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED, pszFilename, ui32Line);
+    *ppvCpuVAddr = _KMallocWrapper(ui32Size, pszFilename, ui32Line);
 #else
-        *ppvCpuVAddr = VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED);
+    *ppvCpuVAddr = KMallocWrapper(ui32Size);
 #endif
+    if(*ppvCpuVAddr)
+    {
+    if (phBlockAlloc)
+    {
+        
+        *phBlockAlloc = HOST_ALLOC_MEM_USING_KMALLOC;
+    }
+    }
+    else
+    {
+    if (!phBlockAlloc)
+    {
+        return PVRSRV_ERROR_OUT_OF_MEMORY;
+    }
 
-        if (!*ppvCpuVAddr)
-            return PVRSRV_ERROR_OUT_OF_MEMORY;
-
-        *phBlockAlloc = HOST_ALLOC_MEM_USING_VMALLOC;
-    } else {
+    
 #if defined(DEBUG_LINUX_MEMORY_ALLOCATIONS)
-        *ppvCpuVAddr = _KMallocWrapper(ui32Size, pszFilename, ui32Line);
+    *ppvCpuVAddr = _VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED, pszFilename, ui32Line);
 #else
-        *ppvCpuVAddr = KMallocWrapper(ui32Size);
+    *ppvCpuVAddr = VMallocWrapper(ui32Size, PVRSRV_HAP_CACHED);
 #endif
+    if (!*ppvCpuVAddr)
+    {
+         return PVRSRV_ERROR_OUT_OF_MEMORY;
+    }
 
-        if(!*ppvCpuVAddr)
-            return PVRSRV_ERROR_OUT_OF_MEMORY;
-
-        if (phBlockAlloc)
-            *phBlockAlloc = HOST_ALLOC_MEM_USING_KMALLOC;
+    
+    *phBlockAlloc = HOST_ALLOC_MEM_USING_VMALLOC;
     }
 
     return PVRSRV_OK;
@@ -209,7 +264,7 @@ OSAllocPages_Impl(IMG_UINT32 ui32AllocFlags,
     
     if(ui32AllocFlags & (PVRSRV_HAP_WRITECOMBINE | PVRSRV_HAP_UNCACHED))
     {
-        OSFlushCPUCache();
+        OSFlushCPUCacheKM();
     }
 #endif 
 
@@ -735,7 +790,7 @@ PVRSRV_ERROR OSInstallMISR(IMG_VOID *pvSysData)
 		return PVRSRV_ERROR_GENERIC;
 	}
 
-	PVR_TRACE(("Installing MISR with cookie %x", pvSysData));
+	PVR_TRACE(("Installing MISR with cookie %p", pvSysData));
 
 	psEnvData->psWorkQueue = create_singlethread_workqueue("pvr_workqueue");
 
@@ -770,8 +825,6 @@ PVRSRV_ERROR OSUninstallMISR(IMG_VOID *pvSysData)
 	}
 
 	PVR_TRACE(("Uninstalling MISR"));
-
-	flush_workqueue(psEnvData->psWorkQueue);
 
 	destroy_workqueue(psEnvData->psWorkQueue);
 
@@ -1683,38 +1736,66 @@ PVRSRV_ERROR OSPCIResumeDev(PVRSRV_PCI_DEV_HANDLE hPVRPCI)
 
 typedef struct TIMER_CALLBACK_DATA_TAG
 {
-    IMG_BOOL		bInUse;
+    IMG_BOOL			bInUse;
     PFN_TIMER_FUNC		pfnTimerFunc;
-    IMG_VOID 		*pvData;	
+    IMG_VOID 			*pvData;	
     struct timer_list	sTimer;
-    IMG_UINT32		ui32Delay;
-    IMG_BOOL		bActive;
-	struct work_struct work;
+    IMG_UINT32			ui32Delay;
+    IMG_BOOL			bActive;
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+	struct work_struct	sWork;
+#endif
 }TIMER_CALLBACK_DATA;
+
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+static struct workqueue_struct	*psTimerWorkQueue;
+#endif
 
 static TIMER_CALLBACK_DATA sTimers[OS_MAX_TIMERS];
 
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+DEFINE_MUTEX(sTimerStructLock);
+#else
 static spinlock_t sTimerStructLock = SPIN_LOCK_UNLOCKED;
+#endif
 
-static void timer_worker(struct work_struct *work)
+static void OSTimerCallbackBody(TIMER_CALLBACK_DATA *psTimerCBData)
 {
-	TIMER_CALLBACK_DATA *psTimerCBData =
-		container_of(work, TIMER_CALLBACK_DATA, work);
+    if (!psTimerCBData->bActive)
+        return;
 
-	if (psTimerCBData->bActive)
-	{
-		/* call timer callback */
-		psTimerCBData->pfnTimerFunc(psTimerCBData->pvData);
-
-		/* reset timer */
-		mod_timer(&psTimerCBData->sTimer, psTimerCBData->ui32Delay + jiffies);
-	}
+    
+    psTimerCBData->pfnTimerFunc(psTimerCBData->pvData);
+    
+    
+    mod_timer(&psTimerCBData->sTimer, psTimerCBData->ui32Delay + jiffies);
 }
+
+
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+static void OSTimerWorkQueueCallBack(struct work_struct *psWork)
+{
+    TIMER_CALLBACK_DATA *psTimerCBData = container_of(psWork, TIMER_CALLBACK_DATA, sWork);
+
+    OSTimerCallbackBody(psTimerCBData);
+}
+#endif
 
 static IMG_VOID OSTimerCallbackWrapper(IMG_UINT32 ui32Data)
 {
     TIMER_CALLBACK_DATA	*psTimerCBData = (TIMER_CALLBACK_DATA*)ui32Data;
-	schedule_work(&psTimerCBData->work);
+    
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+    int res;
+
+    res = queue_work(psTimerWorkQueue, &psTimerCBData->sWork);
+    if (res == 0)
+    {
+        PVR_DPF((PVR_DBG_WARNING, "OSTimerCallbackWrapper: work already queued"));		
+    }
+#else
+    OSTimerCallbackBody(psTimerCBData);
+#endif
 }
 
 
@@ -1722,7 +1803,9 @@ IMG_HANDLE OSAddTimer(PFN_TIMER_FUNC pfnTimerFunc, IMG_VOID *pvData, IMG_UINT32 
 {
     TIMER_CALLBACK_DATA	*psTimerCBData;
     IMG_UINT32		ui32i;
+#if !defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
     unsigned long		ulLockFlags;
+#endif
 
     
     if(!pfnTimerFunc)
@@ -1732,7 +1815,11 @@ IMG_HANDLE OSAddTimer(PFN_TIMER_FUNC pfnTimerFunc, IMG_VOID *pvData, IMG_UINT32 
     }
     
     
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+    mutex_lock(&sTimerStructLock);
+#else
     spin_lock_irqsave(&sTimerStructLock, ulLockFlags);
+#endif
     for (ui32i = 0; ui32i < OS_MAX_TIMERS; ui32i++)
     {
         psTimerCBData = &sTimers[ui32i];
@@ -1742,8 +1829,11 @@ IMG_HANDLE OSAddTimer(PFN_TIMER_FUNC pfnTimerFunc, IMG_VOID *pvData, IMG_UINT32 
             break;
         }
     }
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+    mutex_unlock(&sTimerStructLock);
+#else
     spin_unlock_irqrestore(&sTimerStructLock, ulLockFlags);
-
+#endif
     if (ui32i >= OS_MAX_TIMERS)
     {
         PVR_DPF((PVR_DBG_ERROR, "OSAddTimer: all timers are in use"));		
@@ -1754,8 +1844,7 @@ IMG_HANDLE OSAddTimer(PFN_TIMER_FUNC pfnTimerFunc, IMG_VOID *pvData, IMG_UINT32 
     psTimerCBData->pvData = pvData;
     psTimerCBData->bActive = IMG_FALSE;
     
-    INIT_WORK(&psTimerCBData->work, timer_worker);
-
+    
 
 
     psTimerCBData->ui32Delay = ((HZ * ui32MsTimeout) < 1000)
@@ -1765,7 +1854,7 @@ IMG_HANDLE OSAddTimer(PFN_TIMER_FUNC pfnTimerFunc, IMG_VOID *pvData, IMG_UINT32 
     init_timer(&psTimerCBData->sTimer);
     
     
-    psTimerCBData->sTimer.function = OSTimerCallbackWrapper;
+    psTimerCBData->sTimer.function = (IMG_VOID *)OSTimerCallbackWrapper;
     psTimerCBData->sTimer.data = (IMG_UINT32)psTimerCBData;
     psTimerCBData->sTimer.expires = psTimerCBData->ui32Delay + jiffies;
     
@@ -1799,7 +1888,6 @@ PVRSRV_ERROR OSRemoveTimer (IMG_HANDLE hTimer)
 PVRSRV_ERROR OSEnableTimer (IMG_HANDLE hTimer)
 {
     TIMER_CALLBACK_DATA *psTimerCBData = GetTimerStructure(hTimer);
-	int ret;
 
     PVR_ASSERT(psTimerCBData->bInUse);
     PVR_ASSERT(!psTimerCBData->bActive);
@@ -1811,10 +1899,8 @@ PVRSRV_ERROR OSEnableTimer (IMG_HANDLE hTimer)
     psTimerCBData->sTimer.expires = psTimerCBData->ui32Delay + jiffies;
 
     
-    ret = mod_timer(&psTimerCBData->sTimer, psTimerCBData->ui32Delay + jiffies);
-	if(ret == 1)
-		PVR_DPF((PVR_DBG_WARNING, "OSEnableTimer: enabling active timer"));
-
+    add_timer(&psTimerCBData->sTimer);
+    
     return PVRSRV_OK;
 }
 
@@ -1828,11 +1914,20 @@ PVRSRV_ERROR OSDisableTimer (IMG_HANDLE hTimer)
 
     
     psTimerCBData->bActive = IMG_FALSE;
+	smp_mb();
 
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+	flush_workqueue(psTimerWorkQueue);
+#endif
 
-    cancel_work_sync(&psTimerCBData->work);
+    
     del_timer_sync(&psTimerCBData->sTimer);	
     
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+    
+	flush_workqueue(psTimerWorkQueue);
+#endif
+
     return PVRSRV_OK;
 }
 
@@ -2048,6 +2143,7 @@ typedef struct _sWrapMemInfo_
     IMG_UINT32 ulBeyondEndAddr;
     struct vm_area_struct *psVMArea;
 #endif
+	IMG_BOOL bWrapWorkaround;
 } sWrapMemInfo;
 
 static IMG_VOID CheckPagesContiguous(sWrapMemInfo *psInfo)
@@ -2149,7 +2245,10 @@ PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem)
         {
             for (i = 0; i < psInfo->iNumPages; i++)
             {
-                put_page_testzero(psInfo->ppsPages[i]);
+                if(psInfo->bWrapWorkaround)
+                    put_page(psInfo->ppsPages[i]);
+                else
+                    put_page_testzero(psInfo->ppsPages[i]);
             }
             break;
         }
@@ -2179,7 +2278,8 @@ PVRSRV_ERROR OSReleasePhysPageAddr(IMG_HANDLE hOSWrapMem)
 PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr, 
                                     IMG_UINT32 ui32Bytes, 
                                     IMG_SYS_PHYADDR *psSysPAddr,
-                                    IMG_HANDLE *phOSWrapMem)
+                                    IMG_HANDLE *phOSWrapMem,
+                                    IMG_BOOL bWrapWorkaround)
 {
     IMG_UINT32 ulStartAddrOrig = (IMG_UINT32) pvCPUVAddr;
     IMG_UINT32 ulAddrRangeOrig = (IMG_UINT32) ui32Bytes;
@@ -2207,6 +2307,7 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr,
         return PVRSRV_ERROR_OUT_OF_MEMORY;
     }
     memset(psInfo, 0, sizeof(*psInfo));
+    psInfo->bWrapWorkaround = bWrapWorkaround;
 
 #if defined(DEBUG)
     psInfo->ulStartAddr = ulStartAddrOrig;
@@ -2271,7 +2372,7 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr,
         goto exit_check;
     }
 
-    PVR_TRACE(("OSAcquirePhysPageAddr: get_user_pages failed (%d), trying something else", iNumPagesMapped));
+    PVR_DPF((PVR_DBG_MESSAGE, "OSAcquirePhysPageAddr: get_user_pages failed (%d), trying something else", iNumPagesMapped));
     
     
     down_read(&current->mm->mmap_sem);
@@ -2337,7 +2438,10 @@ PVRSRV_ERROR OSAcquirePhysPageAddr(IMG_VOID* pvCPUVAddr,
             
             for (j = 0; j < i; j++)
             {
-                put_page_testzero(psInfo->ppsPages[j]);
+                if(psInfo->bWrapWorkaround)
+                    put_page(psInfo->ppsPages[j]);
+                else
+                    put_page_testzero(psInfo->ppsPages[j]);
             }
             break;
         }
@@ -2418,26 +2522,37 @@ error_free:
     return PVRSRV_ERROR_GENERIC;
 }
 
-#if defined(SUPPORT_CPU_CACHED_BUFFERS)
-
-#if defined(__i386__)
-static void per_cpu_cache_flush(void *arg)
+PVRSRV_ERROR PVROSFuncInit(IMG_VOID)
 {
-    PVR_UNREFERENCED_PARAMETER(arg);
-    wbinvd();
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+    {
+        IMG_UINT32 ui32i;
+
+        psTimerWorkQueue = create_workqueue("pvr_timer");
+        if (psTimerWorkQueue == NULL)
+        {
+	    PVR_DPF((PVR_DBG_ERROR, "%s: couldn't create timer workqueue", __FUNCTION__));		
+	    return PVRSRV_ERROR_GENERIC;
+
+        }
+
+        for (ui32i = 0; ui32i < OS_MAX_TIMERS; ui32i++)
+        {
+            TIMER_CALLBACK_DATA *psTimerCBData = &sTimers[ui32i];
+
+	    INIT_WORK(&psTimerCBData->sWork, OSTimerWorkQueueCallBack);
+        }
+    }
+#endif
+    return PVRSRV_OK;
 }
-#endif 
 
-IMG_VOID OSFlushCPUCache(IMG_VOID)
+IMG_VOID PVROSFuncDeInit(IMG_VOID)
 {
-#if defined(__arm__)
-    flush_cache_all();
-#elif defined(__i386__)
-    
-    on_each_cpu(per_cpu_cache_flush, NULL, 1);
-#else
-#error "Implement full CPU cache flush for this CPU!"
+#if defined(PVR_LINUX_TIMERS_USING_WORKQUEUES)
+    if (psTimerWorkQueue != NULL)
+    {
+	destroy_workqueue(psTimerWorkQueue);
+    }
 #endif
 }
-
-#endif 

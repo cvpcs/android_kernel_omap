@@ -118,6 +118,13 @@ static int mmc_decode_csd(struct mmc_card *card)
 		csd->r2w_factor = UNSTUFF_BITS(resp, 26, 3);
 		csd->write_blkbits = UNSTUFF_BITS(resp, 22, 4);
 		csd->write_partial = UNSTUFF_BITS(resp, 21, 1);
+
+		if (UNSTUFF_BITS(resp, 46, 1))
+			csd->erase_size = 512;
+		else {
+			csd->erase_size = UNSTUFF_BITS(resp, 39, 7) + 1;
+			csd->erase_size <<= csd->write_blkbits;
+		}
 		break;
 	case 1:
 		/*
@@ -146,6 +153,7 @@ static int mmc_decode_csd(struct mmc_card *card)
 		csd->r2w_factor = 4; /* Unused */
 		csd->write_blkbits = 9;
 		csd->write_partial = 0;
+		csd->erase_size = 512;
 		break;
 	default:
 		printk(KERN_ERR "%s: unrecognised CSD structure version %d\n",
@@ -252,6 +260,10 @@ static int mmc_switch_hs(struct mmc_card *card)
 		return 0;
 
 	if (card->sw_caps.hs_max_dtr == 0)
+		return 0;
+
+	/* LIBtt04854 : All of 2GB sd card set to 24Mhz */
+	if (card->csd.read_blkbits == 10)
 		return 0;
 
 	err = -EIO;
@@ -450,7 +462,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 			if (!err) {
 				if (retries > 1) {
 					printk(KERN_WARNING
-					       "%s: recovered\n", 
+					       "%s: recovered\n",
 					       mmc_hostname(host));
 				}
 				break;
@@ -560,12 +572,12 @@ static void mmc_sd_detect(struct mmc_host *host)
 {
 	int err = 0;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-        int retries = 5;
+	int retries = 5;
 #endif
 
 	BUG_ON(!host);
 	BUG_ON(!host->card);
-       
+
 	mmc_claim_host(host);
 
 	/*
@@ -584,6 +596,13 @@ static void mmc_sd_detect(struct mmc_host *host)
 	if (!retries) {
 		printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",
 		       __func__, mmc_hostname(host), err);
+	}
+
+	if (!err && host->ops->get_cd && host->ops->get_cd(host) == 0) {
+		printk(KERN_ERR "%s(%s): card is accesible, but detect pin "
+			"is HIGH, card is being unplugged?\n",
+			__func__, mmc_hostname(host));
+		err = -1;
 	}
 #else
 	err = mmc_send_status(host->card, NULL);

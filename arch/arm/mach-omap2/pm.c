@@ -16,6 +16,9 @@
 #include <plat/omap34xx.h>
 
 #include "pm.h"
+#include <plat/omap-pm.h>
+
+unsigned int wakeup_timer_nseconds;
 
 #ifdef CONFIG_OMAP_PM_SRF
 static ssize_t vdd_opp_show(struct kobject *, struct kobj_attribute *, char *);
@@ -92,13 +95,13 @@ static ssize_t vdd_opp_store(struct kobject *kobj, struct kobj_attribute *attr,
 	}
 
 	if (attr == &vdd1_opp_attr) {
-		if (value < 1 || value > 5) {
+		if (value < MIN_VDD1_OPP || value > MAX_VDD1_OPP) {
 			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
 			return -EINVAL;
 		}
 		resource_set_opp_level(VDD1_OPP, value, flags);
 	} else if (attr == &vdd2_opp_attr) {
-		if (value < 2 || value > 3) {
+		if (value < MIN_VDD2_OPP || value > MAX_VDD2_OPP) {
 			printk(KERN_ERR "vdd_opp_store: Invalid value\n");
 			return -EINVAL;
 		}

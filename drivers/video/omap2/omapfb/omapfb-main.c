@@ -1421,9 +1421,6 @@ static int omapfb_alloc_fbmem_display(struct fb_info *fbi, unsigned long size,
 		bytespp = 2;
 		break;
 	case 24:
-#ifdef CONFIG_FB_OMAP2_32_BPP
-	case 32:
-#endif
 		bytespp = 4;
 		break;
 	default:
@@ -1816,9 +1813,6 @@ static int omapfb_fb_init(struct omapfb2_device *fbdev, struct fb_info *fbi)
 				var->bits_per_pixel = 16;
 				break;
 			case 24:
-#ifdef CONFIG_FB_OMAP2_32_BPP
-			case 32:
-#endif
 				var->bits_per_pixel = 32;
 				break;
 			default:
@@ -2228,11 +2222,10 @@ static int omapfb_probe(struct platform_device *pdev)
 			dev_warn(fbdev->dev, "Failed to enable display '%s'\n",
 					def_display->name);
 
-		if (def_display->enable_te)
-			def_display->enable_te(def_display, 1);
-
 		/* set the update mode */
 		if (def_display->caps & OMAP_DSS_DISPLAY_CAP_MANUAL_UPDATE) {
+			if (def_display->enable_te)
+				def_display->enable_te(def_display, 1);
 #ifdef CONFIG_FB_OMAP2_FORCE_AUTO_UPDATE
 			if (def_display->set_update_mode)
 				def_display->set_update_mode(def_display,
@@ -2312,7 +2305,7 @@ module_param_named(mirror, def_mirror, bool, 0);
 /* late_initcall to let panel/ctrl drivers loaded first.
  * I guess better option would be a more dynamic approach,
  * so that omapfb reacts to new panels when they are loaded */
-late_initcall(omapfb_init);
+device_initcall_sync(omapfb_init);
 /*module_init(omapfb_init);*/
 module_exit(omapfb_exit);
 

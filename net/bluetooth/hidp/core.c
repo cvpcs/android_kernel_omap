@@ -49,6 +49,7 @@
 #include "hidp.h"
 
 #define VERSION "1.2"
+#define HIDP_DATC_ACCUM_MAX_LEN 2000
 
 static DECLARE_RWSEM(hidp_session_sem);
 static LIST_HEAD(hidp_session_list);
@@ -376,6 +377,8 @@ static void hidp_process_hid_control(struct hidp_session *session,
 		/* Flush the transmit queues */
 		skb_queue_purge(&session->ctrl_transmit);
 		skb_queue_purge(&session->intr_transmit);
+		session->intr_sock->sk->sk_err = EUNATCH;
+		session->ctrl_sock->sk->sk_err = EUNATCH;
 
 		/* Kill session thread */
 		atomic_inc(&session->terminate);
@@ -455,16 +458,67 @@ static void hidp_recv_intr_frame(struct hidp_session *session,
 
 	hdr = skb->data[0];
 	skb_pull(skb, 1);
-
 	if (hdr == (HIDP_TRANS_DATA | HIDP_DATA_RTYPE_INPUT)) {
+		if (session->datc_accum_len > 0) {
+			BT_DBG("DATA: expected DATC, discarding %zu bytes",
+				session->datc_accum_len);
+			session->datc_accum_len = 0;
+		}
+		if ((skb->len + 1) == L2CAP_DEFAULT_MTU) {
+			/* Start Accumulating data */
+			memcpy(session->datc_accum_buf, skb->data, skb->len);
+			session->datc_accum_len = skb->len;
+			BT_DBG("DATA: accumulating: %d", skb->len);
+			kfree_skb(skb);
+			return;
+		}
 		hidp_set_timer(session);
 
 		if (session->input)
 			hidp_input_report(session, skb);
 
 		if (session->hid) {
-			hid_input_report(session->hid, HID_INPUT_REPORT, skb->data, skb->len, 1);
+			hid_input_report(session->hid, HID_INPUT_REPORT,
+				skb->data, skb->len, 1);
 			BT_DBG("report len %d", skb->len);
+		}
+	} else if (hdr == (HIDP_TRANS_DATC | HIDP_DATA_RTYPE_INPUT)) {
+		if (session->datc_accum_len > 0) {
+			/* Accumulate DATC into buffer */
+			if (session->datc_accum_len + skb->len <=
+					HIDP_DATC_ACCUM_MAX_LEN) {
+				memcpy(session->datc_accum_buf +
+					session->datc_accum_len,
+					skb->data, skb->len);
+				session->datc_accum_len += skb->len;
+				BT_DBG("DATC: accumulating:%d total:%zu",
+					skb->len,
+					session->datc_accum_len);
+			} else {
+				BT_DBG("DATC: buffer overflow reqd:%zu size:%d",
+					session->datc_accum_len + skb->len,
+					HIDP_DATC_ACCUM_MAX_LEN);
+				session->datc_accum_len = 0;
+			}
+
+			if (session->datc_accum_len > 0 &&
+				(skb->len + 1) < L2CAP_DEFAULT_MTU) {
+				/* Packet ends here, process it. */
+				hidp_set_timer(session);
+				if (session->hid) {
+					hid_input_report(session->hid,
+						HID_INPUT_REPORT,
+						session->datc_accum_buf,
+						session->datc_accum_len,
+						1);
+					BT_DBG("report len %zu",
+						session->datc_accum_len);
+				}
+				session->datc_accum_len = 0;
+			}
+		} else {
+			BT_DBG("DATC: unexpected, discarding %d bytes",
+				skb->len);
 		}
 	} else {
 		BT_DBG("Unsupported protocol header 0x%02x", hdr);
@@ -598,6 +652,7 @@ static int hidp_session(void *arg)
 
 	up_write(&hidp_session_sem);
 
+	kfree(session->datc_accum_buf);
 	kfree(session);
 	return 0;
 }
@@ -854,6 +909,12 @@ int hidp_add_connection(struct hidp_connadd_req *req, struct socket *ctrl_sock, 
 			goto purge;
 	}
 
+	session->datc_accum_buf = kmalloc(HIDP_DATC_ACCUM_MAX_LEN, GFP_KERNEL);
+	if (!session->datc_accum_buf) {
+		err = -ENOMEM;
+		goto purge;
+	}
+
 	__hidp_link_session(session);
 
 	hidp_set_timer(session);
@@ -878,6 +939,8 @@ unlink:
 	hidp_del_timer(session);
 
 	__hidp_unlink_session(session);
+
+	kfree(session->datc_accum_buf);
 
 	if (session->input) {
 		input_unregister_device(session->input);

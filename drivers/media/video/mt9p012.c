@@ -55,6 +55,8 @@
 #define MT9P012_XCLK_NOM_2 24000000
 #define MT9P012_XCLK_NOM_4 48000000
 
+#define VIDEO_BIN_SUMMING 1
+
 /* Still capture 5 MP */
 #define MT9P012_IMAGE_WIDTH_MAX		2592
 #define MT9P012_IMAGE_HEIGHT_MAX	1944
@@ -93,23 +95,32 @@
 #define MT9P013_MIN_ANALOG_GAIN			0x2D
 #define MT9P012_MAX_ANALOG_GAIN			0x1FF
 #define MT9P012_GAIN_STEP			0x1
+#define MT9P013_GAIN_STEP			0x1
 #define MT9P012_DEF_LINEAR_GAIN			((u16)(2 * 256))
+#define MT9P013_DEF_LINEAR_GAIN			((u16)(2 * 256))
 #define MT9P012_MIN_LINEAR_GAIN			((u16)(2.0 * 256))
 #define MT9P013_MIN_LINEAR_GAIN			((u16)(1.4 * 256))
 #define MT9P012_MIN_LINEAR_GAIN_CAL_ADJ		((u16)(1.75 * 256))
-#define MT9P012_MAX_LINEAR_GAIN			((u16)(15.875 * 256))
+#define MT9P013_MIN_LINEAR_GAIN_CAL_ADJ		((u16)(1.75 * 256))
+#define MT9P012_MAX_LINEAR_GAIN			((u16)(31.75 * 256))
+#define MT9P013_MAX_LINEAR_GAIN			((u16)(31.75 * 256))
 
 /* Exposure time values (usecs)*/
 #define MT9P012_DEF_MIN_EXPOSURE	100
 #define MT9P012_DEF_MAX_EXPOSURE	1000000
 #define MT9P012_DEF_EXPOSURE		20000
 #define MT9P012_EXPOSURE_STEP		1
+#define MT9P013_DEF_MIN_EXPOSURE	100
+#define MT9P013_DEF_MAX_EXPOSURE	1000000
+#define MT9P013_DEF_EXPOSURE		20000
+#define MT9P013_EXPOSURE_STEP		1
 
 /* Frame Delays */
 #define MT9P012_GAIN_FRAME_DELAY 1
 #define MT9P012_EXP_TIME_FRAME_DELAY 2
 
 #define MT9P012_MAX_FRAME_LENGTH_LINES 0xFFFF
+#define MT9P012_MAX_LINE_LENGTH_PCK 0xFFFE
 
 #define RESET_REG_PLL_OFF_BP		5
 
@@ -174,13 +185,14 @@ enum mt9p012_orientation {
 	MT9P012_VERT_FLIP_ONLY,
 	MT9P012_HORZ_FLIP_AND_VERT_FLIP
 };
+
 enum ioctl_op {
 	IOCTL_RD = 0,
 	IOCTL_WR
 };
 
 enum sensor_op {
-	SENSOR_REG_REQ = (V4L2_CID_BASE+100),
+	SENSOR_REG_REQ = 0,
 	CALIBRATION_ADJ,
 	SENSOR_ID_REQ,
 	COLOR_BAR,
@@ -190,6 +202,7 @@ enum sensor_op {
 	SENSOR_PARAMS_REQ,
 	START_MECH_SHUTTER_CAPTURE,
 	SET_SHUTTER_PARAMS,
+	SENSOR_OTP_REQ,
 };
 
 struct camera_params_control {
@@ -197,11 +210,14 @@ struct camera_params_control {
 	enum sensor_op op;
 	u32 data_in;
 	u32 data_out;
+	u16 data_in_size;
+	u16 data_out_size;
 };
 
 /* Private IOCTLs */
 
-#define V4L2_CID_PRIVATE_CAMERA_PARAMS	(V4L2_CID_PRIVATE_BASE + 19)
+#define V4L2_CID_PRIVATE_S_PARAMS	(V4L2_CID_PRIVATE_BASE + 22)
+#define V4L2_CID_PRIVATE_G_PARAMS	(V4L2_CID_PRIVATE_BASE + 23)
 
 /* Debug functions */
 static int debug;
@@ -339,7 +355,7 @@ struct mt9p012_clk_settings {
  * struct struct frame_settings - struct for storage of sensor
  * frame settings
  * @frame_len_lines: number of lines in frame
- * @line_len_pck: number of pixels in line
+ * @line_len_pck_min: minimum number of pixels in line
  * @x_addr_start: horizontal start address
  * @x_addr_end: horizontal end address
  * @y_addr_start: vertical start address
@@ -354,8 +370,8 @@ struct mt9p012_clk_settings {
  * @scale_mode: image resolution scaler mode
  */
 struct mt9p012_frame_settings {
-	u16	frame_len_lines_min;
 	u16	frame_len_lines;
+	u16	line_len_pck_min;
 	u16	line_len_pck;
 	u16	x_addr_start;
 	u16	x_addr_end;
@@ -367,6 +383,7 @@ struct mt9p012_frame_settings {
 	u16	y_odd_inc;
 	u16	x_bin;
 	u16	xy_bin;
+	u16	x_bin_summing;
 	u16	scale_m;
 	u16	scale_mode;
 };
@@ -416,6 +433,7 @@ struct mt9p012_sensor_params {
 	u16 line_length_clocks;
 	u16 x_output_size;
 	u16 y_output_size;
+	u16 binning_sensitivity;
 };
 
 /**
@@ -448,8 +466,8 @@ static struct mt9p012_sensor_settings sensor_settings[] = {
 			.op_sys_clk_div = 1,
 		},
 		.frame = {
-			.frame_len_lines_min = 2056,
-			.line_len_pck = 5372,
+			.frame_len_lines = 2056,
+			.line_len_pck_min = 5372,
 			.x_addr_start = 8,
 			.x_addr_end = 2599,
 			.y_addr_start = 8,
@@ -460,6 +478,7 @@ static struct mt9p012_sensor_settings sensor_settings[] = {
 			.y_odd_inc = 1,
 			.x_bin = 0,
 			.xy_bin = 0,
+			.x_bin_summing = 0,
 			.scale_m = 0,
 			.scale_mode = 0,
 		},
@@ -482,8 +501,8 @@ static struct mt9p012_sensor_settings sensor_settings[] = {
 			.op_sys_clk_div = 1,
 		},
 		.frame = {
-			.frame_len_lines_min = 1061,
-			.line_len_pck = 3360,
+			.frame_len_lines = 1063,
+			.line_len_pck_min = 3360,
 			.x_addr_start = 8,
 			.x_addr_end = 2597,
 			.y_addr_start = 8,
@@ -494,6 +513,7 @@ static struct mt9p012_sensor_settings sensor_settings[] = {
 			.y_odd_inc = 3,
 			.x_bin = 0,
 			.xy_bin = 1,
+			.x_bin_summing = VIDEO_BIN_SUMMING,
 			.scale_m = 0,
 			.scale_mode = 0,
 		},
@@ -516,8 +536,8 @@ static struct mt9p012_sensor_settings sensor_settings[] = {
 			.op_sys_clk_div = 2,
 		},
 		.frame = {
-			.frame_len_lines_min = 775,
-			.line_len_pck = 3200,
+			.frame_len_lines = 779,
+			.line_len_pck_min = 3200,
 			.x_addr_start = 0,
 			.x_addr_end = 2601,
 			.y_addr_start = 4,
@@ -528,6 +548,7 @@ static struct mt9p012_sensor_settings sensor_settings[] = {
 			.y_odd_inc = 7,
 			.x_bin = 0,
 			.xy_bin = 1,
+			.x_bin_summing = VIDEO_BIN_SUMMING,
 			.scale_m = 0,
 			.scale_mode = 0,
 		},
@@ -550,8 +571,8 @@ static struct mt9p012_sensor_settings sensor_settings[] = {
 			.op_sys_clk_div = 2,
 		},
 		.frame = {
-			.frame_len_lines_min = 775,
-			.line_len_pck = 3200,
+			.frame_len_lines = 783,
+			.line_len_pck_min = 3200,
 			.x_addr_start = 0,
 			.x_addr_end = 2601,
 			.y_addr_start = 4,
@@ -562,6 +583,7 @@ static struct mt9p012_sensor_settings sensor_settings[] = {
 			.y_odd_inc = 7,
 			.x_bin = 0,
 			.xy_bin = 1,
+			.x_bin_summing = VIDEO_BIN_SUMMING,
 			.scale_m = 48,
 			.scale_mode = 2,
 		},
@@ -590,42 +612,30 @@ static struct vcontrol video_control[] = {
 			.id = V4L2_CID_EXPOSURE,
 			.type = V4L2_CTRL_TYPE_INTEGER,
 			.name = "Exposure",
-			.minimum = MT9P012_DEF_MIN_EXPOSURE,
-			.maximum = MT9P012_DEF_MAX_EXPOSURE,
-			.step = MT9P012_EXPOSURE_STEP,
-			.default_value = MT9P012_DEF_EXPOSURE,
+			.minimum = MT9P013_DEF_MIN_EXPOSURE,
+			.maximum = MT9P013_DEF_MAX_EXPOSURE,
+			.step = MT9P013_EXPOSURE_STEP,
+			.default_value = MT9P013_DEF_EXPOSURE,
 		},
-		.current_value = MT9P012_DEF_EXPOSURE,
+		.current_value = MT9P013_DEF_EXPOSURE,
 	},
 	{
 		{
 			.id = V4L2_CID_GAIN,
 			.type = V4L2_CTRL_TYPE_INTEGER,
 			.name = "Gain",
-			.minimum = MT9P012_MIN_LINEAR_GAIN,
-			.maximum = MT9P012_MAX_LINEAR_GAIN,
-			.step = MT9P012_GAIN_STEP,
-			.default_value = MT9P012_DEF_LINEAR_GAIN,
+			.minimum = MT9P013_MIN_LINEAR_GAIN,
+			.maximum = MT9P013_MAX_LINEAR_GAIN,
+			.step = MT9P013_GAIN_STEP,
+			.default_value = MT9P013_DEF_LINEAR_GAIN,
 		},
-		.current_value = MT9P012_DEF_LINEAR_GAIN,
+		.current_value = MT9P013_DEF_LINEAR_GAIN,
 	},
 	{
 		{
-			.id = FLASH_NEXT_FRAME,
+			.id = V4L2_CID_PRIVATE_S_PARAMS,
 			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "Flash On Next Frame",
-			.minimum = 0,
-			.maximum = 1,
-			.step = 0,
-			.default_value = 0,
-		},
-		.current_value = 0,
-	},
-	{
-		{
-			.id = SENSOR_ID_REQ,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "Sensor ID",
+			.name = "Set Camera Params",
 			.minimum = 0,
 			.maximum = -1,
 			.step = 0,
@@ -635,57 +645,9 @@ static struct vcontrol video_control[] = {
 	},
 	{
 		{
-			.id = ORIENTATION,
+			.id = V4L2_CID_PRIVATE_G_PARAMS,
 			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "Orientation",
-			.minimum = MT9P012_NO_HORZ_FLIP_OR_VERT_FLIP,
-			.maximum = MT9P012_HORZ_FLIP_AND_VERT_FLIP,
-			.step = 0,
-			.default_value = MT9P012_NO_HORZ_FLIP_OR_VERT_FLIP,
-		},
-		.current_value = MT9P012_NO_HORZ_FLIP_OR_VERT_FLIP,
-	},
-	{
-		{
-			.id = LENS_CORRECTION,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "Lens Correction",
-			.minimum = 0,
-			.maximum = 1,
-			.step = 0,
-			.default_value = 0,
-		},
-		.current_value = 0,
-	},
-	{
-		{
-			.id = CALIBRATION_ADJ,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "Calibration Adjust",
-			.minimum = 0,
-			.maximum = 1,
-			.step = 0,
-			.default_value = 0,
-		},
-		.current_value = MT9P012_NO_HORZ_FLIP_OR_VERT_FLIP,
-	},
-	{
-		{
-			.id = SENSOR_PARAMS_REQ,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "Sensor Params",
-			.minimum = 0,
-			.maximum = -1,
-			.step = 0,
-			.default_value = 0,
-		},
-		.current_value = 0,
-	},
-	{
-		{
-			.id = V4L2_CID_PRIVATE_CAMERA_PARAMS,
-			.type = V4L2_CTRL_TYPE_INTEGER,
-			.name = "Camera Params",
+			.name = "Get Camera Params",
 			.minimum = 0,
 			.maximum = -1,
 			.step = 0,
@@ -694,6 +656,81 @@ static struct vcontrol video_control[] = {
 		.current_value = 0,
 	},
 };
+
+struct private_vcontrol {
+	int id;
+	int type;
+	char name[32];
+	int minimum;
+	int maximum;
+	int step;
+	int default_value;
+	int current_value;
+};
+
+static struct private_vcontrol video_control_private[] = {
+	{
+		.id = FLASH_NEXT_FRAME,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Flash On Next Frame",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 0,
+		.default_value = 0,
+		.current_value = 0,
+	},
+	{
+		.id = SENSOR_ID_REQ,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Sensor ID",
+		.minimum = 0,
+		.maximum = -1,
+		.step = 0,
+		.default_value = 0,
+		.current_value = 0,
+	},
+	{
+		.id = ORIENTATION,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Orientation",
+		.minimum = MT9P012_NO_HORZ_FLIP_OR_VERT_FLIP,
+		.maximum = MT9P012_HORZ_FLIP_AND_VERT_FLIP,
+		.step = 0,
+		.default_value = MT9P012_NO_HORZ_FLIP_OR_VERT_FLIP,
+		.current_value = MT9P012_NO_HORZ_FLIP_OR_VERT_FLIP,
+	},
+	{
+		.id = LENS_CORRECTION,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Lens Correction",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 0,
+		.default_value = 0,
+		.current_value = 0,
+	},
+	{
+		.id = CALIBRATION_ADJ,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Calibration Adjust",
+		.minimum = 0,
+		.maximum = 1,
+		.step = 0,
+		.default_value = 0,
+		.current_value = MT9P012_NO_HORZ_FLIP_OR_VERT_FLIP,
+	},
+	{
+		.id = SENSOR_PARAMS_REQ,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "Sensor Params",
+		.minimum = 0,
+		.maximum = -1,
+		.step = 0,
+		.default_value = 0,
+		.current_value = 0,
+	},
+};
+
 
 /**
  * struct mt9p012_sensor - main structure for storage of sensor information
@@ -759,6 +796,22 @@ static int find_vctrl(struct mt9p012_sensor *sensor, int id)
 		i = -EINVAL;
 	return i;
 }
+
+static int find_vctrl_private(int id)
+{
+	int i;
+
+	if (id < 0)
+		return -EDOM;
+
+	for (i = ARRAY_SIZE(video_control_private)-1; i >= 0; i--)
+		if (video_control_private[i].id == id)
+			break;
+	if (i < 0)
+		i = -EINVAL;
+	return i;
+}
+
 
 /**
  * mt9p012_read_reg - Read a value from a register in an mt9p012 sensor device
@@ -971,7 +1024,8 @@ static enum mt9p012_image_size mt9p012_find_isize(unsigned int width)
 	return isize;
 }
 
-static enum mt9p012_frame_type mt9p012_find_iframe(enum mt9p012_image_size isize)
+static enum
+mt9p012_frame_type mt9p012_find_iframe(enum mt9p012_image_size isize)
 {
 	enum mt9p012_frame_type iframe = 0;
 
@@ -1116,15 +1170,22 @@ static int mt9p012_set_gain(u16 gain, struct v4l2_int_device *s,
 	else
 		digital_gain_bp = 9;
 
-	if (linear_gain_q5 >= 8*32) {
+	if (linear_gain_q5 >= 16*32) {
 		gain_stage_2x = 0x180;	/* AG2X_1, AG2X_2 */
 		shift_bits = 0x2;
+		digital_gain = 2;
+	} else if (linear_gain_q5 >= 8*32) {
+		gain_stage_2x = 0x180;	/* AG2X_1, AG2X_2 */
+		shift_bits = 0x2;
+		digital_gain = 1;
 	} else if (linear_gain_q5 >= 2*32) {
 		gain_stage_2x = 0x080;	/* AG2X_1 */
 		shift_bits = 0x1;
+		digital_gain = 1;
 	} else {
 		gain_stage_2x = 0x000;
 		shift_bits = 0x0;
+		digital_gain = 1;
 	}
 
 	analog_gain_code = gain_stage_2x | (linear_gain_q5 >> shift_bits);
@@ -1171,7 +1232,7 @@ end:
  * returned.
  */
 int mt9p012_set_flash_next_frame(u16 enable, struct v4l2_int_device *s,
-					     struct vcontrol *lvc)
+					     struct private_vcontrol *pvc)
 {
 	int err = 0;
 	struct mt9p012_sensor *sensor = s->priv;
@@ -1195,7 +1256,7 @@ int mt9p012_set_flash_next_frame(u16 enable, struct v4l2_int_device *s,
 		dev_err(&client->dev, "Error setting flash next frame.%d", err);
 		return err;
 	} else
-		lvc->current_value = enable;
+		pvc->current_value = enable;
 
 	return err;
 }
@@ -1204,7 +1265,7 @@ int mt9p012_set_flash_next_frame(u16 enable, struct v4l2_int_device *s,
  * Sets the sensor orientation.
  */
 static int mt9p012_set_orientation(enum mt9p012_orientation val,
-			struct v4l2_int_device *s, struct vcontrol *lvc)
+			struct v4l2_int_device *s, struct private_vcontrol *pvc)
 {
 	int err = 0;
 	u8 orient;
@@ -1240,7 +1301,7 @@ end:
 		dev_err(&client->dev, "Error setting orientation.%d", err);
 		return err;
 	} else
-		lvc->current_value = (u32)val;
+		pvc->current_value = (u32)val;
 
 	return err;
 }
@@ -1273,7 +1334,7 @@ static int mt9p012_init_exposure_params(struct v4l2_int_device *s,
 }
 
 static int mt9p012_calibration_adjust(int val, struct v4l2_int_device *s,
-			struct vcontrol *lvc)
+			struct private_vcontrol *pvc)
 {
 	int err = 0;
 	struct mt9p012_sensor *sensor = s->priv;
@@ -1295,7 +1356,7 @@ static int mt9p012_calibration_adjust(int val, struct v4l2_int_device *s,
 		dev_err(&client->dev, "Error setting cal adj: %d", err);
 		return err;
 	} else {
-		lvc->current_value = val;
+		pvc->current_value = val;
 	}
 
 	/* adjust minimum gain */
@@ -1324,7 +1385,7 @@ static int mt9p012_set_framerate(struct v4l2_int_device *s,
 			struct v4l2_fract *fper, enum mt9p012_frame_type iframe)
 {
 	int err = 0, i = 0;
-	u32 frame_length_lines, line_time_q8;
+	u32 line_len_pck, line_time_q8;
 	struct mt9p012_sensor *sensor = s->priv;
 	struct i2c_client *client = to_i2c_client(sensor->dev);
 	struct mt9p012_sensor_settings *ss;
@@ -1332,24 +1393,28 @@ static int mt9p012_set_framerate(struct v4l2_int_device *s,
 
 	ss = &sensor_settings[iframe];
 
-	line_time_q8 = (((u32)ss->frame.line_len_pck * 1000 * 256) /
+	/* calc desired line_time (usec's (q8)) */
+	line_time_q8 = (((u32)fper->numerator * 1000000 * 256 /
+		fper->denominator)) / ss->frame.frame_len_lines;
+
+	line_len_pck = (((line_time_q8 * (sensor->vt_pix_clk / 10000)) /
+		100) + 128) / 256;
+
+	/* Range check line_len_pck */
+	if (line_len_pck > MT9P012_MAX_LINE_LENGTH_PCK)
+		line_len_pck = MT9P012_MAX_LINE_LENGTH_PCK;
+	else if (line_len_pck < ss->frame.line_len_pck_min)
+		line_len_pck = ss->frame.line_len_pck_min;
+
+	/* recalculate line_time with actual line_len_pck that would be used */
+	line_time_q8 = (((u32)line_len_pck * 1000 * 256) /
 			(sensor->vt_pix_clk / 1000)); /* usec's (q8) */
 
-	frame_length_lines = (((u32)fper->numerator * 1000000 * 256 /
-			       fper->denominator)) / line_time_q8;
+	mt9p012_write_reg(client, MT9P012_16BIT,
+			  REG_LINE_LEN_PCK, line_len_pck);
 
 	sensor->sensor_params.line_time = line_time_q8;
-
-	/* Range check frame_length_lines */
-	if (frame_length_lines > MT9P012_MAX_FRAME_LENGTH_LINES)
-		frame_length_lines = MT9P012_MAX_FRAME_LENGTH_LINES;
-	else if (frame_length_lines < ss->frame.frame_len_lines_min)
-		frame_length_lines = ss->frame.frame_len_lines_min;
-
-	mt9p012_write_reg(client, MT9P012_16BIT,
-			  REG_FRAME_LEN_LINES, frame_length_lines);
-
-	ss->frame.frame_len_lines = frame_length_lines;
+	ss->frame.line_len_pck = line_len_pck;
 
 	/* Update min/max exposure times */
 	sensor->min_exposure_time = (ss->exposure.fine_int_tm * 1000000 /
@@ -1357,7 +1422,7 @@ static int mt9p012_set_framerate(struct v4l2_int_device *s,
 	sensor->abs_max_exposure_time = (line_time_q8 *
 				     (MT9P012_MAX_FRAME_LENGTH_LINES - 1)) >> 8;
 	sensor->fps_max_exposure_time = (line_time_q8 *
-				     (frame_length_lines - 1)) >> 8;
+				     (ss->frame.frame_len_lines - 1)) >> 8;
 
 	/* Update Exposure Time */
 	i = find_vctrl(sensor, V4L2_CID_EXPOSURE);
@@ -1372,10 +1437,10 @@ static int mt9p012_set_framerate(struct v4l2_int_device *s,
 	}
 
 	v4l_info(client, "MT9P012 Set Framerate: iframe=%d, fper=%d/%d, " \
-		 "frame_len_lines=%d, fps_max_expT=%dus, " \
-		 "abs_max_expT=%dus\n",
-		 iframe, fper->numerator, fper->denominator,
-		ss->frame.frame_len_lines,
+		"line_len_pck=%d, fps_max_expT=%dus, " \
+		"abs_max_expT=%dus\n",
+		iframe, fper->numerator, fper->denominator,
+		ss->frame.line_len_pck,
 		sensor->fps_max_exposure_time,
 		sensor->abs_max_exposure_time);
 
@@ -1469,7 +1534,7 @@ static int mt9p012_param_handler(u32 ctrlval,
 	struct mt9p012_sensor_settings *ss =
 		&sensor_settings[sensor->current_iframe];
 	struct camera_params_control camctl;
-	struct vcontrol *lvc;
+	struct private_vcontrol *pvc;
 	int i;
 
 	if (!ctrlval)
@@ -1481,20 +1546,40 @@ static int mt9p012_param_handler(u32 ctrlval,
 		return -EINVAL;
 	}
 
-	i = find_vctrl(sensor, camctl.op);
+	i = find_vctrl_private(camctl.op);
 	if (i < 0)
 		return -EINVAL;
-	lvc = &sensor->video_control[i];
+	pvc = &video_control_private[i];
 
 	if (camctl.xaction == IOCTL_RD) {
 		switch (camctl.op) {
 		case FLASH_NEXT_FRAME:
-			camctl.data_in = lvc->current_value;
+			camctl.data_in = pvc->current_value;
+			if (copy_to_user((void *)ctrlval, &camctl,
+					sizeof(struct camera_params_control))) {
+				printk(KERN_ERR "mt9p012: Copy_to_user err\n");
+				err = -EINVAL;
+			}
 			break;
 		case ORIENTATION:
-			camctl.data_in = lvc->current_value;
+			camctl.data_in = pvc->current_value;
+			if (copy_to_user((void *)ctrlval, &camctl,
+					sizeof(struct camera_params_control))) {
+				printk(KERN_ERR "mt9p012: Copy_to_user err\n");
+				err = -EINVAL;
+			}
 			break;
 		case LENS_CORRECTION:
+			if (sizeof(sensor->lsc) > camctl.data_in_size) {
+				dev_err(&client->dev,
+					"V4L2_CID_PRIVATE_S_PARAMS IOCTL " \
+					"DATA SIZE ERROR: src=%d dst=%d\n",
+					sizeof(sensor->lsc),
+					camctl.data_in_size);
+				err = -EINVAL;
+				break;
+			}
+
 			if (copy_to_user((void *)camctl.data_in,
 					 &(sensor->lsc),
 					 sizeof(sensor->lsc))) {
@@ -1503,6 +1588,16 @@ static int mt9p012_param_handler(u32 ctrlval,
 			}
 			break;
 		case SENSOR_ID_REQ:
+			if (sizeof(sensor->sensor_id) > camctl.data_in_size) {
+				dev_err(&client->dev,
+					"V4L2_CID_PRIVATE_S_PARAMS IOCTL " \
+					"DATA SIZE ERROR: src=%d dst=%d\n",
+					sizeof(sensor->sensor_id),
+					camctl.data_in_size);
+				err = -EINVAL;
+				break;
+			}
+
 			if (copy_to_user((void *)camctl.data_in,
 					 &(sensor->sensor_id),
 					 sizeof(sensor->sensor_id))) {
@@ -1519,6 +1614,24 @@ static int mt9p012_param_handler(u32 ctrlval,
 				ss->frame.x_output_size;
 			sensor->sensor_params.y_output_size =
 				ss->frame.y_output_size;
+			if (ss->frame.x_bin_summing == 0) {
+				sensor->sensor_params.binning_sensitivity =
+					(u16)(1.0 * 256);
+			} else {
+				sensor->sensor_params.binning_sensitivity =
+					(u16)(2.0 * 256);
+			}
+
+			if (sizeof(sensor->sensor_params) >
+					camctl.data_in_size) {
+				dev_err(&client->dev,
+					"V4L2_CID_PRIVATE_S_PARAMS IOCTL " \
+					"DATA SIZE ERROR: src=%d dst=%d\n",
+					sizeof(sensor->sensor_params),
+					camctl.data_in_size);
+				err = -EINVAL;
+				break;
+			}
 
 			if (copy_to_user((void *)camctl.data_in,
 					 &(sensor->sensor_params),
@@ -1536,13 +1649,23 @@ static int mt9p012_param_handler(u32 ctrlval,
 		switch (camctl.op) {
 		case FLASH_NEXT_FRAME:
 			err = mt9p012_set_flash_next_frame(camctl.data_out,
-							   s, lvc);
+							   s, pvc);
 			break;
 		case ORIENTATION:
 			err = mt9p012_set_orientation(camctl.data_out,
-						      s, lvc);
+						      s, pvc);
 			break;
 		case LENS_CORRECTION:
+			if (sizeof(sensor->lsc) < camctl.data_out_size) {
+				dev_err(&client->dev,
+					"V4L2_CID_PRIVATE_S_PARAMS IOCTL " \
+					"DATA SIZE ERROR: src=%d dst=%d\n",
+					camctl.data_out_size,
+					sizeof(sensor->lsc));
+				err = -EINVAL;
+				break;
+			}
+
 			err = copy_from_user(&(sensor->lsc),
 				(struct mt9p012_lsc_params *)camctl.data_out,
 				sizeof(struct mt9p012_lsc_params));
@@ -1554,7 +1677,7 @@ static int mt9p012_param_handler(u32 ctrlval,
 			break;
 		case CALIBRATION_ADJ:
 			err = mt9p012_calibration_adjust(camctl.data_out,
-							 s, lvc);
+							 s, pvc);
 			break;
 		default:
 			dev_err(&client->dev, "Unrecognized op %d\n",
@@ -1628,12 +1751,14 @@ int mt9p012_configure_frame(struct v4l2_int_device *s,
 			 sensor_settings[iframe].frame.y_addr_end);
 
 	if (sensor->ver < mt9p012_ver(12, 7)) {
-		data = (sensor_settings[iframe].frame.x_bin & 1) << 11;
+		data = (sensor_settings[iframe].frame.x_bin_summing & 1) << 12;
+		data |= (sensor_settings[iframe].frame.x_bin & 1) << 11;
 		data |= (sensor_settings[iframe].frame.xy_bin & 1) << 10;
-		data |= (sensor_settings[iframe].frame.x_odd_inc & 7) << 6;
-		data |= (sensor_settings[iframe].frame.y_odd_inc & 0x3F);
+		data |= (sensor_settings[iframe].frame.x_odd_inc & 7) << 5;
+		data |= (sensor_settings[iframe].frame.y_odd_inc & 7) << 2;
 	} else {
-		data = (sensor_settings[iframe].frame.x_bin & 1) << 11;
+		data = (sensor_settings[iframe].frame.x_bin_summing & 1) << 12;
+		data |= (sensor_settings[iframe].frame.x_bin & 1) << 11;
 		data |= (sensor_settings[iframe].frame.xy_bin & 1) << 10;
 		data |= (sensor_settings[iframe].frame.x_odd_inc & 7) << 6;
 		data |= (sensor_settings[iframe].frame.y_odd_inc & 0x3F);
@@ -1647,7 +1772,10 @@ int mt9p012_configure_frame(struct v4l2_int_device *s,
 			 sensor_settings[iframe].frame.frame_len_lines);
 
 	err |= mt9p012_write_reg(client, MT9P012_16BIT, REG_LINE_LEN_PCK,
-			 sensor_settings[iframe].frame.line_len_pck);
+			 sensor_settings[iframe].frame.line_len_pck_min);
+
+	sensor_settings[iframe].frame.line_len_pck =
+		sensor_settings[iframe].frame.line_len_pck_min;
 
 	err |= mt9p012_write_reg(client, MT9P012_16BIT, REG_SCALE_M,
 			 sensor_settings[iframe].frame.scale_m);
@@ -1716,6 +1844,7 @@ static int mt9p012_configure(struct v4l2_int_device *s)
 	struct i2c_client *client = to_i2c_client(sensor->dev);
 	enum mt9p012_image_size isize;
 	struct vcontrol *lvc = NULL;
+	struct private_vcontrol *pvc = NULL;
 	int iframe;
 	int err;
 	u32 xclk;
@@ -1779,33 +1908,33 @@ static int mt9p012_configure(struct v4l2_int_device *s)
 	}
 
 	/* Set initial flash mode */
-	i = find_vctrl(sensor, FLASH_NEXT_FRAME);
+	i = find_vctrl_private(FLASH_NEXT_FRAME);
 	if (i >= 0) {
-		lvc = &sensor->video_control[i];
-		mt9p012_set_flash_next_frame(lvc->current_value,
-			sensor->v4l2_int_device, lvc);
+		pvc = &video_control_private[i];
+		mt9p012_set_flash_next_frame(pvc->current_value,
+			sensor->v4l2_int_device, pvc);
 	}
 
 	/* Set initial orientation */
-	i = find_vctrl(sensor, ORIENTATION);
+	i = find_vctrl_private(ORIENTATION);
 	if (i >= 0) {
-		lvc = &sensor->video_control[i];
-		mt9p012_set_orientation(lvc->current_value,
-			sensor->v4l2_int_device, lvc);
+		pvc = &video_control_private[i];
+		mt9p012_set_orientation(pvc->current_value,
+			sensor->v4l2_int_device, pvc);
 	}
 
 	/* Set cal adj */
-	i = find_vctrl(sensor, CALIBRATION_ADJ);
+	i = find_vctrl_private(CALIBRATION_ADJ);
 	if (i >= 0) {
-		lvc = &sensor->video_control[i];
-		mt9p012_calibration_adjust(lvc->current_value,
-			sensor->v4l2_int_device, lvc);
+		pvc = &video_control_private[i];
+		mt9p012_calibration_adjust(pvc->current_value,
+			sensor->v4l2_int_device, pvc);
 	}
 
 	/* Set LSC */
-	i = find_vctrl(sensor, LENS_CORRECTION);
+	i = find_vctrl_private(LENS_CORRECTION);
 	if (i >= 0) {
-		lvc = &sensor->video_control[i];
+		pvc = &video_control_private[i];
 		mt9p012_set_lens_correction(&(sensor->lsc),
 			sensor->v4l2_int_device);
 	}
@@ -1982,8 +2111,11 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
 	case V4L2_CID_GAIN:
 		err = mt9p012_set_gain(vc->value, s, lvc);
 		break;
-	case V4L2_CID_PRIVATE_CAMERA_PARAMS:
+	case V4L2_CID_PRIVATE_S_PARAMS:
 		err = mt9p012_param_handler(vc->value, s);
+		break;
+	case V4L2_CID_PRIVATE_G_PARAMS:
+		/* Not yet supported. */
 		break;
 	}
 
@@ -2228,6 +2360,7 @@ static int ioctl_dev_init(struct v4l2_int_device *s)
 
 	return 0;
 }
+
 /**
  * ioctl_enum_framesizes - V4L2 sensor if handler for vidioc_int_enum_framesizes
  * @s: pointer to standard V4L2 device structure
@@ -2263,7 +2396,7 @@ const struct v4l2_fract mt9p012_frameintervals[] = {
 	{  .numerator = 1, .denominator = 11 },
 	{  .numerator = 1, .denominator = 15 },
 	{  .numerator = 1, .denominator = 20 },
-	{  .numerator = 1, .denominator = 25 },
+	{  .numerator = 1, .denominator = 24 },
 	{  .numerator = 1, .denominator = 30 },
 };
 
@@ -2282,15 +2415,15 @@ static int ioctl_enum_frameintervals(struct v4l2_int_device *s,
 
 	/* Do we already reached all discrete framesizes? */
 
-	if ((frmi->width == mt9p012_sizes[3].width) &&
-				(frmi->height == mt9p012_sizes[3].height)) {
-		/* FIXME: The only frameinterval supported by 5MP
-		 * capture sizes is 1/11 fps
+	if ((frmi->width == mt9p012_sizes[MT9P012_FIVE_MP].width) &&
+		(frmi->height == mt9p012_sizes[MT9P012_FIVE_MP].height)) {
+		/* The only frameinterval supported by 5MP
+		 * capture sizes is 11 fps
 		 */
 		if (frmi->index != 0)
 			return -EINVAL;
 	} else {
-		if (frmi->index >= 5)
+		if (frmi->index > 4)
 			return -EINVAL;
 	}
 
@@ -2318,14 +2451,6 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power new_power)
 
 	switch (new_power) {
 	case V4L2_POWER_ON:
-#if defined(CONFIG_VIDEO_OLDOMAP3)
-		rval = sensor->pdata->set_xclk(sensor->x_clk);
-#else
-		rval = sensor->pdata->set_xclk(sensor->x_clk,
-			OMAP34XXCAM_XCLK_A);
-#endif
-		if (rval == -EINVAL)
-			break;
 		rval = sensor->pdata->power_set(sensor->dev, V4L2_POWER_ON);
 		if (rval)
 			break;
@@ -2342,11 +2467,6 @@ static int ioctl_s_power(struct v4l2_int_device *s, enum v4l2_power new_power)
 err_on:
 		sensor->power_on = false;
 		rval = sensor->pdata->power_set(sensor->dev, V4L2_POWER_OFF);
-#if defined(CONFIG_VIDEO_OLDOMAP3)
-		sensor->pdata->set_xclk(0);
-#else
-		sensor->pdata->set_xclk(0, OMAP34XXCAM_XCLK_A);
-#endif
 		break;
 	case V4L2_POWER_STANDBY:
 		if (sensor->detected)
@@ -2354,14 +2474,9 @@ err_on:
 		sensor->power_on = false;
 		rval = sensor->pdata->power_set(sensor->dev,
 			V4L2_POWER_STANDBY);
-#if defined(CONFIG_VIDEO_OLDOMAP3)
-		sensor->pdata->set_xclk(0);
-#else
-		sensor->pdata->set_xclk(0, OMAP34XXCAM_XCLK_A);
-#endif
 		break;
 	default:
-		return -EINVAL;
+		rval =  -EINVAL;
 	}
 
 	return rval;
@@ -2459,7 +2574,6 @@ static int mt9p012_probe(struct i2c_client *client,
 	sensor->n_video_control = ARRAY_SIZE(video_control);
 
 	sensor->pdata->power_set = pdata->power_set;
-	sensor->pdata->set_xclk = pdata->set_xclk;
 	sensor->pdata->priv_data_set = pdata->priv_data_set;
 
 	/* Set sensor default values */

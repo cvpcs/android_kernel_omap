@@ -36,6 +36,7 @@ struct omapvout_device {
 	struct video_device vdev;
 	struct mutex  mtx; /* Lock for all device accesses */
 	struct video_device *vfd;
+	struct completion working_completion;
 
 	int opened;
 	int id;

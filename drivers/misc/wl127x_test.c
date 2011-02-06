@@ -27,28 +27,7 @@
 #include <net/bluetooth/bluetooth.h>
 #include <plat/resource.h>
 
-static int wl127x_btwake_gpio;
 static int wl127x_hostwake_gpio;
-
-static ssize_t btwake_sysfs_store(struct class *dev, const char *buf,
-				  size_t count)
-{
-	unsigned long val;
-
-	if (strict_strtoul(buf, 10, &val) < 0) {
-		printk(KERN_ERR "wl127x-test: failed conversion\n");
-		return -EINVAL;
-	}
-
-	if (val != 0 && val != 1) {
-		printk(KERN_ERR "wl127x-test: invalid value=%ld\n", val);
-		return -EINVAL;
-	}
-
-	gpio_set_value(wl127x_btwake_gpio, val);
-
-	return count;
-}
 
 static ssize_t hostwake_sysfs_show(struct class *dev, char *buf)
 {
@@ -56,31 +35,26 @@ static ssize_t hostwake_sysfs_show(struct class *dev, char *buf)
 	char *str = buf;
 	ssize_t count;
 
-	data = gpio_get_value(wl127x_hostwake_gpio);
-	str += sprintf(str, "%d\n", data);
-	count = (ssize_t) (str - buf);
-
-	return count;
+	if (wl127x_hostwake_gpio >= 0) {
+		data = gpio_get_value(wl127x_hostwake_gpio);
+		str += sprintf(str, "%d\n", data);
+		count = (ssize_t) (str - buf);
+		return count;
+	} else {
+		return -EINVAL;
+	}
 }
 
-static CLASS_ATTR(btwake, S_IWUGO, NULL, btwake_sysfs_store);
 static CLASS_ATTR(hostwake, S_IRUGO, hostwake_sysfs_show, NULL);
 
 static int wl127x_test_probe(struct platform_device *pdev)
 {
 	struct wl127x_test_platform_data *pdata = pdev->dev.platform_data;
 
-	wl127x_btwake_gpio = pdata->btwake_gpio;
 	wl127x_hostwake_gpio = pdata->hostwake_gpio;
-
-	if (class_create_file(bt_class, &class_attr_btwake) < 0) {
-		printk(KERN_ERR "wl127x-test: failed creating btwake attr\n");
-		return -1;
-	}
 
 	if (class_create_file(bt_class, &class_attr_hostwake) < 0) {
 		printk(KERN_ERR "wl127x-test: failed creating hostwake attr\n");
-		class_remove_file(bt_class, &class_attr_btwake);
 		return -1;
 	}
 
@@ -93,7 +67,6 @@ static int wl127x_test_remove(struct platform_device *pdev)
 {
 	resource_release("mpu_latency", &pdev->dev);
 
-	class_remove_file(bt_class, &class_attr_btwake);
 	class_remove_file(bt_class, &class_attr_hostwake);
 
 	return 0;

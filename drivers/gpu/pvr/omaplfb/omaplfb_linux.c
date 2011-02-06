@@ -24,8 +24,8 @@
  *
  ******************************************************************************/
 
-#include <asm/io.h>
-#include <asm/uaccess.h>
+#include <linux/io.h>
+#include <linux/uaccess.h>
 
 #include <linux/version.h>
 #include <linux/module.h>
@@ -120,36 +120,110 @@ void OMAPLFBDisplayInit(void)
 
 }
 
-void OMAPLFBSync(void)
-{
-	if (lcd_mgr && lcd_mgr->device && omap_gfxoverlay)
-		lcd_mgr->device->sync(lcd_mgr->device);
-}
+/*#define SGX_FB_DEBUG_FLIP_TIMING 1 */
+#ifdef SGX_FB_DEBUG_FLIP_TIMING
+static ktime_t start;
+static ktime_t end_getovl;
+static ktime_t end_setovl;
+static ktime_t end_apply;
+static ktime_t end_sync;
+static ktime_t end_update;
+static ktime_t start_sync;
+static ktime_t end_sync;
+
+static long int getovltimediff;
+static long int setovltimediff;
+static long int applytimediff;
+static long int synctimediff;
+static long int updatetimediff;
+static int count;
+static int countSync;
+#endif
 
 void OMAPLFBFlip(OMAPLFB_SWAPCHAIN *psSwapChain, unsigned long paddr)
 {
 	u32 pixels;
 
 	if (lcd_mgr && lcd_mgr->device && omap_gfxoverlay) {
+
+#ifdef SGX_FB_DEBUG_FLIP_TIMING
+		start = ktime_get();
+#endif
 		omap_gfxoverlay->get_overlay_info(omap_gfxoverlay,
 						  &gfxoverlayinfo);
+
+#ifdef SGX_FB_DEBUG_FLIP_TIMING
+		end_getovl = ktime_get();
+#endif
 		gfxoverlayinfo.paddr = paddr;
 		/* TODO: plumb vaddr in to this function */
-		gfxoverlayinfo.vaddr = (void *)(paddr - 0x81314000 + 0xd2800000);
+		gfxoverlayinfo.vaddr = (void *)(paddr -
+		0x81314000 + 0xd2800000);
 
 		omap_gfxoverlay->set_overlay_info(omap_gfxoverlay,
 						  &gfxoverlayinfo);
+
+#ifdef SGX_FB_DEBUG_FLIP_TIMING
+		end_setovl = ktime_get();
+#endif
 		lcd_mgr->apply(lcd_mgr);
 
-		lcd_mgr->device->update(lcd_mgr->device, 0, 0,
-					gfxoverlayinfo.width,
-					gfxoverlayinfo.height);
+#ifdef SGX_FB_DEBUG_FLIP_TIMING
+		end_apply = ktime_get();
+#endif
+		/* TODO: make sync a function that always exists, then
+		 * we can remove this specialty check in this code,
+		 * (i.e. a stub function for dumb displays like HDMI) */
+		if (lcd_mgr->device->sync)
+			lcd_mgr->device->sync(lcd_mgr->device);
 
+#ifdef SGX_FB_DEBUG_FLIP_TIMING
+		end_sync = ktime_get();
+#endif
+		/* TODO: make update a function that always exists, then
+		 * we can remove this specialty check in this code,
+		 * (i.e. a stub function for dumb displays like HDMI) */
+		if (lcd_mgr->device->update) {
+			lcd_mgr->device->update(lcd_mgr->device, 0, 0,
+						gfxoverlayinfo.width,
+						gfxoverlayinfo.height);
+		}
+
+#ifdef SGX_FB_DEBUG_FLIP_TIMING
+		end_update = ktime_get();
+#endif
 		pixels = (paddr - fb_info->fix.smem_start) /
-			(fb_info->var.bits_per_pixel / 8);
+			 (fb_info->var.bits_per_pixel / 8);
 		fb_info->var.yoffset = pixels / fb_info->var.xres;
 		fb_info->var.xoffset = pixels % fb_info->var.xres;
 	}
+
+#ifdef SGX_FB_DEBUG_FLIP_TIMING
+	getovltimediff += ktime_to_ns(ktime_sub(end_getovl, start));
+	setovltimediff += ktime_to_ns(ktime_sub(end_setovl, end_getovl));
+	applytimediff += ktime_to_ns(ktime_sub(end_apply, end_setovl));
+	synctimediff += ktime_to_ns(ktime_sub(end_sync, end_apply));
+	updatetimediff += ktime_to_ns(ktime_sub(end_update, end_sync));
+
+	if (++count >= 60) {
+		printk(KERN_INFO DRIVER_PREFIX "--Avg times (millisecs)\n" \
+		       "    get: %ld, set: %ld, apply: %ld, "\
+		       "sync: %ld, update: %ld\n",
+		       ((getovltimediff / 1000000) / count),
+		       ((setovltimediff / 1000000) / count),
+		       ((applytimediff / 1000000) / count),
+		       ((synctimediff / 1000000) / count),
+		       ((updatetimediff / 1000000) / count));
+		count = 0;
+		getovltimediff = 0;
+		setovltimediff = 0;
+		applytimediff = 0;
+		synctimediff = 0;
+		updatetimediff = 0;
+	}
+
+#endif
+
 }
 
 static OMAP_BOOL bDeviceSuspended;

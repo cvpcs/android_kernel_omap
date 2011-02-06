@@ -27,6 +27,11 @@
 #ifndef __INCLUDED_PRIVATE_DATA_H_
 #define __INCLUDED_PRIVATE_DATA_H_
 
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+#include <linux/list.h>
+#include <drm/drmP.h>
+#endif
+
 typedef struct
 {
 	
@@ -36,6 +41,13 @@ typedef struct
 	
 	IMG_HANDLE hKernelMemInfo;
 #endif 
+
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	
+	struct list_head sDRMAuthListItem;
+
+	struct drm_file *psDRMFile;
+#endif
 
 #if defined(SUPPORT_MEMINFO_IDS)
 	

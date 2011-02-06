@@ -159,6 +159,31 @@ config ARCH_MTD_XIP
 config GENERIC_HARDIRQS_NO__DO_IRQ
 	def_bool y
 
+config ARM_OF
+	bool "Support for open firmware device tree (ARM port)"
+	default n
+
+config OF
+	bool "Support for open firmware device tree"
+	depends on ARM_OF
+	default n
+
+config PROC_DEVICETREE
+	bool "Support for device tree in /proc"
+	depends on PROC_FS && OF
+	help
+           This option adds a device-tree directory under /proc which contains
+           an image of the device tree that the kernel copies from Open
+           Firmware or other boot firmware. If unsure, say Y here.
+
+config BOOTINFO
+	bool "Boot Information Feature"
+	default n
+	help
+           This feature provides access to certain boot information
+           from both kernel context (via function call) and user
+           context (via /proc/bootinfo).
+
 if OPROFILE
 
 config OPROFILE_ARMV6
@@ -861,6 +886,42 @@ config ARM_ERRATA_430973
 	  and also flushes the branch target cache at every context switch.
 	  Note that setting specific bits in the ACTLR register may not be
 	  available in non-secure mode.
+
+config ARM_ERRATA_621766
+	bool "ARM errata: Processor deadlock when executing a sequence of NEON or vfp load"
+	depends on CPU_V7
+	help
+	  This option enables the workaround for the 621766 Cortex-A8
+	  (r1p*) erratum. When a sequence on Neon
+	  load instructions is intermixed with several branches, some
+	  of which are mispredicted, it is possible for the processor to
+	  deadlock due to Neon loads on the speculative path not being
+	  properly flushed from the Neon load queue.
+
+	  The workaround for this erratum is to force all NEON loads to be
+	  cached in the L1 cache by setting the L1NEON bit (bit 5) in the
+	  CP15 Auxiliary Control Register. The measured performance impact
+	  of this for Neon applications has been on the order of a few percent (2-3%),
+	  but could be more than that for an application that makes heavy
+	  use of memory streaming. For such applications PLD instructions
+	  could be used to mitigate the performance impact. However need to
+	  consider workaround for ARM_ERRATA_725233 when using PLD.
+
+config ARM_ERRATA_725233
+	bool "ARM errata: Processor deadlock PLD data forwarding enabled"
+	depends on CPU_V7
+	help
+	  This option enables the workaround for the 725233 Cortex-A8 (r1p*).
+	  If a PLD instruction is executed and causes a linefill to occur to
+	  the L2 cache, and a subsequent Neon or VFP load instruction is done
+	  to an address that falls within the same cache line, it is possible
+	  for processor deadlock to occur. The deadlock occurs only in a particular
+	  timing corner case that can happen when the VLD instruction execution
+	  occurs prior to the PLD data being returned on the AXI bus, and there
+	  is a Neon resource stall preventing instruction issue during the same
+	  time window. There is a simple and straightforward workaround for this
+	  issue which is to disable the PLD data forwarding feature, bit [27] in
+	  the L2 Auxiliary Control Register
 
 config ARM_ERRATA_458693
 	bool "ARM errata: Processor deadlock when a false hazard is created"

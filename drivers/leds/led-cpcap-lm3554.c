@@ -378,6 +378,11 @@ static int lm3554_probe(struct i2c_client *client,
 		goto error1;
 	}
 
+	if (!pdata->flags) {
+		pr_err("%s: Device does not exist\n", __func__);
+		return -ENODEV;
+	}
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		err = -ENODEV;
 		dev_err(&client->dev, "client not i2c capable\n");
@@ -516,11 +521,12 @@ static int cpcap_lm3554_probe(struct platform_device *pdev)
 	struct lm3554_cpcap_data *info;
 
 	pr_info("%s:CPCAP Probe enter\n", __func__);
+
 	if (pdev == NULL) {
 		pr_err("%s: platform data required\n", __func__);
 		return -ENODEV;
-
 	}
+
 	info = kzalloc(sizeof(struct lm3554_cpcap_data), GFP_KERNEL);
 	if (info == NULL) {
 		ret = -ENOMEM;
@@ -539,12 +545,15 @@ static int cpcap_lm3554_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	/* Toggle only when the device is present */
 	cpcap_lm3554_power(info->cpcap_dev, 0);
 	mdelay(5);
 	cpcap_lm3554_power(info->cpcap_dev, 1);
 
+	ret = i2c_add_driver(&lm3554_i2c_driver);
+
 	pr_info("%s:CPCAP torch probe exit\n", __func__);
-	return i2c_add_driver(&lm3554_i2c_driver);
+	return ret;
 }
 
 static int cpcap_lm3554_remove(struct platform_device *pdev)
@@ -569,7 +578,7 @@ struct platform_driver cpcap_lm3554_driver = {
 
 static int __init cpcap_lm3554_init(void)
 {
-	return platform_driver_register(&cpcap_lm3554_driver);
+	return cpcap_driver_register(&cpcap_lm3554_driver);
 }
 
 static void __exit cpcap_lm3554_exit(void)

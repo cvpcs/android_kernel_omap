@@ -221,7 +221,7 @@ static struct platform_device mbox_device = {
 
 static inline void omap_init_mbox(void)
 {
-	if (cpu_is_omap2420() || cpu_is_omap3430() || cpu_is_omap3630() || cpu_is_omap44xx()) {
+	if (cpu_is_omap2420() || cpu_is_omap3430() || cpu_is_omap44xx()) {
 		mbox_device.num_resources = ARRAY_SIZE(omap_mbox_resources);
 		mbox_device.resource = omap_mbox_resources;
 	} else {
@@ -620,7 +620,7 @@ static inline void omap2_mmc_mux(struct omap_mmc_platform_data *mmc_controller,
 		}
 	}
 
-	if (cpu_is_omap34xx() || cpu_is_omap3630()) {
+	if (cpu_is_omap34xx()) {
 		u32 dev_conf = 0, v_shift = 0;
 		if (controller_nr == 0) {
 			omap_cfg_reg(N28_34XX_MMC1_CLK);
@@ -708,7 +708,7 @@ void __init omap2_init_mmc(struct omap_mmc_platform_data **mmc_data,
 			irq = INT_24XX_MMC2_IRQ;
 			break;
 		case 2:
-			if (!cpu_is_omap44xx() && !cpu_is_omap34xx() && !cpu_is_omap3630())
+			if (!cpu_is_omap44xx() && !cpu_is_omap34xx())
 				return;
 			base = OMAP3_MMC3_BASE;
 			irq = INT_34XX_MMC3_IRQ;

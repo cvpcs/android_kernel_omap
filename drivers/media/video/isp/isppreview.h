@@ -34,7 +34,7 @@
 #define ISPPRV_CONTRAST_STEP		0x1
 #define ISPPRV_CONTRAST_DEF		0x10
 #define ISPPRV_CONTRAST_LOW		0x0
-#define ISPPRV_CONTRAST_HIGH		0x10
+#define ISPPRV_CONTRAST_HIGH		0x30
 #define ISPPRV_CONTRAST_UNITS		0x1
 
 #define NO_AVE				0x0
@@ -234,6 +234,9 @@ int isppreview_request(void);
 int isppreview_free(void);
 
 int isppreview_config_datapath(enum preview_input input,
+			       enum preview_output output);
+
+int isppreview_update_datapath(enum preview_input input,
 			       enum preview_output output);
 
 void isppreview_config_ycpos(enum preview_ycpos_mode mode);

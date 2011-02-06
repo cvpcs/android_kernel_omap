@@ -101,329 +101,33 @@
 #define SHOLES_ADB_PRODUCT_ID		0x41DB
 #define SHOLES_RNDIS_PRODUCT_ID		0x41E4
 #define SHOLES_RNDIS_ADB_PRODUCT_ID		0x41E5
+
+#ifdef CONFIG_USB_MOT_ANDROID
+#define SHOLES_PHONE_PORTAL_PRODUCT_ID               0x41D8
+#define SHOLES_PHONE_PORTAL_ADB_PRODUCT_ID           0x41DA
+#define SHOLES_MTP_PRODUCT_ID                        0x41D6
+#define SHOLES_MTP_ADB_PRODUCT_ID                    0x41DC
+#endif
+
 #define FACTORY_PRODUCT_ID		0x41D4
+#define FACTORY_ADB_PRODUCT_ID		0x41D4
 
 #define SHOLES_MMCPROBE_ENABLED 0
-
-#if defined(CONFIG_SHOLES_OC_MIN_125)
-	#define SHOLES_FREQ_1 125000000
-        #define SHOLES_FREQ_2 250000000
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_1 0x20
-                #define SHOLES_VSEL_2 0x20
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_1 0x27
-                #define SHOLES_VSEL_2 0x27
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_1 0x27
-                #define SHOLES_VSEL_2 0x27
-	#else
-		#define SHOLES_VSEL_1 0x20
-                #define SHOLES_VSEL_2 0x20
-	#endif
-#elif defined(CONFIG_SHOLES_OC_MIN_250)
-	#define SHOLES_FREQ_1 250000000
-        #define SHOLES_FREQ_2 400000000
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_1 0x20
-                #define SHOLES_VSEL_2 0x20
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_1 0x27
-                #define SHOLES_VSEL_2 0x27
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_1 0x27
-                #define SHOLES_VSEL_2 0x27
-	#else
-		#define SHOLES_VSEL_1 0x20
-                #define SHOLES_VSEL_2 0x20
-	#endif
-#else
-	#define SHOLES_FREQ_1 125000000
-        #define SHOLES_FREQ_2 250000000
-
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_1 0x20
-                #define SHOLES_VSEL_2 0x20
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_1 0x27
-                #define SHOLES_VSEL_2 0x27
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_1 0x27
-                #define SHOLES_VSEL_2 0x27
-	#else
-		#define SHOLES_VSEL_1 0x20
-                #define SHOLES_VSEL_2 0x20
-	#endif
-#endif
-
-#if defined(CONFIG_SHOLES_OC_MAX_800)
-	#define SHOLES_FREQ_3  400000000
-	#define SHOLES_FREQ_4  550000000
-	#define SHOLES_FREQ_5  600000000
-	#define SHOLES_FREQ_6  700000000
-	#define SHOLES_FREQ_7  800000000
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_3 0x28
-		#define SHOLES_VSEL_4 0x32
-		#define SHOLES_VSEL_5 0x34
-		#define SHOLES_VSEL_6 0x38
-		#define SHOLES_VSEL_7 0x3B
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x38
-		#define SHOLES_VSEL_5 0x3E
-		#define SHOLES_VSEL_6 0x3E
-		#define SHOLES_VSEL_7 0x3E
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x38
-		#define SHOLES_VSEL_5 0x3E
-		#define SHOLES_VSEL_6 0x3E
-		#define SHOLES_VSEL_7 0x4A
-	#else
-		#define SHOLES_VSEL_3 0x28
-		#define SHOLES_VSEL_4 0x32
-		#define SHOLES_VSEL_5 0x34
-		#define SHOLES_VSEL_6 0x38
-		#define SHOLES_VSEL_7 0x3B
-	#endif
-#elif defined(CONFIG_SHOLES_OC_MAX_900)
-	#define SHOLES_FREQ_3  550000000
-	#define SHOLES_FREQ_4  600000000
-	#define SHOLES_FREQ_5  700000000
-	#define SHOLES_FREQ_6  800000000
-	#define SHOLES_FREQ_7  900000000
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x34
-		#define SHOLES_VSEL_5 0x38
-		#define SHOLES_VSEL_6 0x3B
-		#define SHOLES_VSEL_7 0x3C
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x3E
-		#define SHOLES_VSEL_6 0x3E
-		#define SHOLES_VSEL_7 0x3F
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x3E
-		#define SHOLES_VSEL_6 0x4A
-		#define SHOLES_VSEL_7 0x4A
-	#else
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x34
-		#define SHOLES_VSEL_5 0x38
-		#define SHOLES_VSEL_6 0x3B
-		#define SHOLES_VSEL_7 0x3C
-	#endif
-#elif defined(CONFIG_SHOLES_OC_MAX_1000)
-	#define SHOLES_FREQ_3  550000000
-	#define SHOLES_FREQ_4  600000000
-	#define SHOLES_FREQ_5  800000000
-	#define SHOLES_FREQ_6  900000000
-	#define SHOLES_FREQ_7 1000000000
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x34
-		#define SHOLES_VSEL_5 0x3B
-		#define SHOLES_VSEL_6 0x3C
-		#define SHOLES_VSEL_7 0x3E
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x3E
-		#define SHOLES_VSEL_6 0x3F
-		#define SHOLES_VSEL_7 0x3F
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x4A
-		#define SHOLES_VSEL_6 0x4A
-		#define SHOLES_VSEL_7 0x50
-	#else
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x34
-		#define SHOLES_VSEL_5 0x3B
-		#define SHOLES_VSEL_6 0x3C
-		#define SHOLES_VSEL_7 0x3E
-	#endif
-#elif defined(CONFIG_SHOLES_OC_MAX_1100)
-	#define SHOLES_FREQ_3  550000000
-	#define SHOLES_FREQ_4  600000000
-	#define SHOLES_FREQ_5  800000000
-	#define SHOLES_FREQ_6 1000000000
-	#define SHOLES_FREQ_7 1100000000
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x34
-		#define SHOLES_VSEL_5 0x3B
-		#define SHOLES_VSEL_6 0x3E
-		#define SHOLES_VSEL_7 0x44
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x3E
-		#define SHOLES_VSEL_6 0x3F
-		#define SHOLES_VSEL_7 0x50
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x4A
-		#define SHOLES_VSEL_6 0x50
-		#define SHOLES_VSEL_7 0x62
-	#else
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x34
-		#define SHOLES_VSEL_5 0x3B
-		#define SHOLES_VSEL_6 0x3E
-		#define SHOLES_VSEL_7 0x44
-	#endif
-#elif defined(CONFIG_SHOLES_OC_MAX_1200)
-	#define SHOLES_FREQ_3  550000000
-	#define SHOLES_FREQ_4  600000000
-	#define SHOLES_FREQ_5  800000000
-	#define SHOLES_FREQ_6 1000000000
-	#define SHOLES_FREQ_7 1200000000
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x34
-		#define SHOLES_VSEL_5 0x3B
-		#define SHOLES_VSEL_6 0x3E
-		#define SHOLES_VSEL_7 0x52
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x3E
-		#define SHOLES_VSEL_6 0x3F
-		#define SHOLES_VSEL_7 0x62
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x4A
-		#define SHOLES_VSEL_6 0x50
-		#define SHOLES_VSEL_7 0x6E
-	#else
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x34
-		#define SHOLES_VSEL_5 0x3B
-		#define SHOLES_VSEL_6 0x3E
-		#define SHOLES_VSEL_7 0x52
-	#endif
-#elif defined(CONFIG_SHOLES_OC_MAX_1250)
-	#define SHOLES_FREQ_3  550000000
-	#define SHOLES_FREQ_4  700000000
-	#define SHOLES_FREQ_5  900000000
-	#define SHOLES_FREQ_6 1100000000
-	#define SHOLES_FREQ_7 1250000000
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x38
-		#define SHOLES_VSEL_5 0x3C
-		#define SHOLES_VSEL_6 0x44
-		#define SHOLES_VSEL_7 0x58
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x3F
-		#define SHOLES_VSEL_6 0x50
-		#define SHOLES_VSEL_7 0x62
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x4A
-		#define SHOLES_VSEL_6 0x62
-		#define SHOLES_VSEL_7 0x6E
-	#else
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x38
-		#define SHOLES_VSEL_5 0x3C
-		#define SHOLES_VSEL_6 0x44
-		#define SHOLES_VSEL_7 0x58
-	#endif
-#elif defined(CONFIG_SHOLES_OC_MAX_1320)
-	#define SHOLES_FREQ_3  600000000
-	#define SHOLES_FREQ_4  800000000
-	#define SHOLES_FREQ_5 1000000000
-	#define SHOLES_FREQ_6 1100000000
-	#define SHOLES_FREQ_7 1320000000
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_3 0x34
-		#define SHOLES_VSEL_4 0x3B
-		#define SHOLES_VSEL_5 0x3E
-		#define SHOLES_VSEL_6 0x44
-		#define SHOLES_VSEL_7 0x60
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_3 0x3E
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x3F
-		#define SHOLES_VSEL_6 0x50
-		#define SHOLES_VSEL_7 0x62
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_3 0x3E
-		#define SHOLES_VSEL_4 0x4A
-		#define SHOLES_VSEL_5 0x50
-		#define SHOLES_VSEL_6 0x62
-		#define SHOLES_VSEL_7 0x6E
-	#else
-		#define SHOLES_VSEL_3 0x34
-		#define SHOLES_VSEL_4 0x3B
-		#define SHOLES_VSEL_5 0x3E
-		#define SHOLES_VSEL_6 0x44
-		#define SHOLES_VSEL_7 0x60
-	#endif
-#else
-	#define SHOLES_FREQ_3  550000000
-	#define SHOLES_FREQ_4  600000000
-	#define SHOLES_FREQ_5  800000000
-	#define SHOLES_FREQ_6  900000000
-	#define SHOLES_FREQ_7 1000000000
-	#if defined(CONFIG_SHOLES_OC_LV)
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x34
-		#define SHOLES_VSEL_5 0x3B
-		#define SHOLES_VSEL_6 0x3C
-		#define SHOLES_VSEL_7 0x3E
-	#elif defined(CONFIG_SHOLES_OC_SV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x3E
-		#define SHOLES_VSEL_6 0x3F
-		#define SHOLES_VSEL_7 0x3F
-	#elif defined(CONFIG_SHOLES_OC_IV)
-		#define SHOLES_VSEL_3 0x38
-		#define SHOLES_VSEL_4 0x3E
-		#define SHOLES_VSEL_5 0x4A
-		#define SHOLES_VSEL_6 0x4A
-		#define SHOLES_VSEL_7 0x50
-	#else
-		#define SHOLES_VSEL_3 0x32
-		#define SHOLES_VSEL_4 0x34
-		#define SHOLES_VSEL_5 0x3B
-		#define SHOLES_VSEL_6 0x3C
-		#define SHOLES_VSEL_7 0x3E
-	#endif
-#endif
 
 static char device_serial[MAX_USB_SERIAL_NUM];
 
 static struct omap_opp sholes_mpu_rate_table[] = {
 	{0, 0, 0},
 	/*OPP1*/
-	{SHOLES_FREQ_1, VDD1_OPP1, SHOLES_VSEL_1},
+	{S125M, VDD1_OPP1, 0x20},
 	/*OPP2*/
-	{SHOLES_FREQ_2, VDD1_OPP2, SHOLES_VSEL_2},
+	{S250M, VDD1_OPP2, 0x27},
 	/*OPP3*/
-	{SHOLES_FREQ_3, VDD1_OPP3, SHOLES_VSEL_3},
+	{S500M, VDD1_OPP3, 0x32},
 	/*OPP4*/
-	{SHOLES_FREQ_4, VDD1_OPP4, SHOLES_VSEL_4},
+	{S550M, VDD1_OPP4, 0x38},
 	/*OPP5*/
-	{SHOLES_FREQ_5, VDD1_OPP5, SHOLES_VSEL_5},
-	/*OPP6*/
-	{SHOLES_FREQ_6, VDD1_OPP6, SHOLES_VSEL_6},
-	/*OPP7*/
-	{SHOLES_FREQ_7, VDD1_OPP7, SHOLES_VSEL_7},
+	{S600M, VDD1_OPP5, 0x3E},
 };
 
 #define S80M 80250000
@@ -505,7 +209,35 @@ static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_ACM
 	"acm",
 #endif
+#ifdef CONFIG_USB_MOT_ANDROID
+	"usbnet",
+	"mtp",
+#endif
 };
+
+#ifdef CONFIG_USB_MOT_ANDROID
+static char *usb_functions_phone_portal[] = {
+	"usbnet",
+	"mtp",
+	"acm",
+};
+
+static char *usb_functions_phone_portal_adb[] = {
+	"usbnet",
+	"mtp",
+	"acm",
+	"adb",
+};
+
+static char *usb_functions_mtp[] = {
+	"mtp",
+};
+
+static char *usb_functions_mtp_adb[] = {
+	"mtp",
+	"adb",
+};
+#endif
 
 static struct android_usb_product usb_products[] = {
 	{
@@ -528,10 +260,38 @@ static struct android_usb_product usb_products[] = {
 		.num_functions	= ARRAY_SIZE(usb_functions_rndis_adb),
 		.functions	= usb_functions_rndis_adb,
 	},
+#ifdef CONFIG_USB_MOT_ANDROID
+	{
+		.product_id     = SHOLES_PHONE_PORTAL_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_phone_portal),
+		.functions      = usb_functions_phone_portal,
+	},
+	{
+		.product_id     = SHOLES_PHONE_PORTAL_ADB_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_phone_portal_adb),
+		.functions      = usb_functions_phone_portal_adb,
+	},
+	{
+		.product_id     = SHOLES_MTP_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_mtp),
+		.functions      = usb_functions_mtp,
+	},
+	{
+		.product_id     = SHOLES_PHONE_PORTAL_ADB_PRODUCT_ID,
+		.num_functions  = ARRAY_SIZE(usb_functions_mtp_adb),
+		.functions      = usb_functions_mtp_adb,
+	},
+#endif
+
 };
 
 static char *factory_usb_functions[] = {
 	"usbnet"
+};
+
+static char *factory_usb_functions_adb[] = {
+	"usbnet",
+	"adb"
 };
 
 static struct android_usb_product factory_usb_products[] = {
@@ -539,6 +299,11 @@ static struct android_usb_product factory_usb_products[] = {
 		.product_id	= FACTORY_PRODUCT_ID,
 		.num_functions	= ARRAY_SIZE(factory_usb_functions),
 		.functions	= factory_usb_functions,
+	},
+	{
+		.product_id	= FACTORY_ADB_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(factory_usb_functions_adb),
+		.functions	= factory_usb_functions_adb,
 	},
 };
 
@@ -564,8 +329,8 @@ static struct android_usb_platform_data andusb_plat_factory = {
 	.serial_number		= device_serial,
 	.num_products = ARRAY_SIZE(factory_usb_products),
 	.products = factory_usb_products,
-	.num_functions = ARRAY_SIZE(factory_usb_functions),
-	.functions = factory_usb_functions,
+	.num_functions = ARRAY_SIZE(factory_usb_functions_adb),
+	.functions = factory_usb_functions_adb,
 };
 
 static struct platform_device androidusb_device = {
@@ -606,10 +371,6 @@ static struct platform_device rndis_device = {
 };
 #endif
 
-static struct platform_device usbnet_device = {
-	.name	= "usbnet",
-};
-
 extern void musb_disable_idle(int on);
 
 static int cpcap_usb_connected_probe(struct platform_device *pdev)
@@ -645,7 +406,6 @@ static void sholes_gadget_init(void)
 	int i;
 	char *src;
 #endif
-	int factory_test = !strcmp(boot_mode, "factorycable");
 
 	reg = DIE_ID_REG_BASE + DIE_ID_REG_OFFSET;
 	val[0] = omap_readl(reg);
@@ -665,18 +425,12 @@ static void sholes_gadget_init(void)
 #endif
 
 	/* use different USB configuration when in factory test mode */
-	if (factory_test) {
+	if (!strcmp(boot_mode, "factorycable"))
 		androidusb_device.dev.platform_data = &andusb_plat_factory;
-		platform_device_register(&usbnet_device);
-	}
 
 	platform_device_register(&usb_mass_storage_device);
 #ifdef CONFIG_USB_ANDROID_RNDIS
-	/* Don't include RNDIS in factory test mode
-	 * to avoid interference with the usbnet driver.
-	 */
-	if (!factory_test)
-		platform_device_register(&rndis_device);
+	platform_device_register(&rndis_device);
 #endif
 	platform_device_register(&androidusb_device);
 	platform_driver_register(&cpcap_usb_connected_driver);

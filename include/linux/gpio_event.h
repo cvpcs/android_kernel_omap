@@ -80,6 +80,7 @@ struct gpio_event_matrix_info {
 	const unsigned short *keymap;
 	unsigned int *input_gpios;
 	unsigned int *output_gpios;
+	int (*sw_fixup)(int index);
 	unsigned int ninputs;
 	unsigned int noutputs;
 	/* time to wait before reading inputs after driving each output */
@@ -88,6 +89,8 @@ struct gpio_event_matrix_info {
 	ktime_t debounce_delay;
 	ktime_t poll_time;
 	unsigned flags;
+	unsigned int *wakeup_gpios;
+	unsigned int wakeup_ints;
 };
 
 /* Directly connected inputs and outputs */

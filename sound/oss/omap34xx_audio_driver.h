@@ -31,6 +31,7 @@
 
 /********************** McBSP SYSCONFIG bit definitions ********************/
 #define FORCE_IDLE 0x0
+#define NO_IDLE 0x1
 #define SMART_IDLE 0x2
 #define MCBSP_SYSC_IOFF_FOFF 0x0
 #define MCBSP_SYSC_IOFF_FON 0x2	/* Err in TRM ES2.0 ?? */
@@ -52,10 +53,13 @@
 #define OMAP_MCBSP_SKIP_SECOND (0x1<<2)
 /* RRST STATE */
 #define OMAP_MCBSP_RRST_DISABLE 0
+#define OMAP_MCBSP_RRST_ENABLE  1
 /*XRST STATE */
 #define OMAP_MCBSP_XRST_DISABLE 0
+#define OMAP_MCBSP_XRST_ENABLE  1
 
 #define OMAP_MCBSP_FRAME_SINGLEPHASE 1
+#define OMAP_MCBSP_FRAME_DUALPHASE   2
 
 /* Sample Rate Generator Clock source */
 #define OMAP_MCBSP_SRGCLKSRC_CLKS 1
@@ -130,6 +134,7 @@ struct omap_mcbsp_dma_transfer_params {
 	void (*callback) (u32 ch_status, void *arg);
 	/* word length of data */
 	u32 word_length1;
+	u32 word_length2;
 };
 
 struct omap_mcbsp_wrapper {

@@ -55,6 +55,11 @@ enum omap_display_type {
 	OMAP_DISPLAY_TYPE_VENC		= 1 << 4,
 };
 
+enum omap_dsi_xfer_mode {
+	OMAP_DSI_XFER_CMD_MODE		= 0,
+	OMAP_DSI_XFER_VIDEO_MODE	= 1
+};
+
 enum omap_plane {
 	OMAP_DSS_GFX	= 0,
 	OMAP_DSS_VIDEO1	= 1,
@@ -240,6 +245,8 @@ int dsi_vc_dcs_read(int channel, u8 dcs_cmd, u8 *buf, int buflen);
 int dsi_vc_set_max_rx_packet_size(int channel, u16 len);
 int dsi_vc_send_null(int channel);
 int dsi_vc_send_bta_sync(int channel);
+void dsi_disable_vid_vc_enable_cmd_vc(void);
+void dsi_disable_cmd_vc_enable_vid_vc(void);
 
 /* Board specific data */
 struct omap_dss_board_info {
@@ -260,6 +267,9 @@ struct omap_video_timings {
 	u16 h;
 	/* Unit: KHz */
 	u32 pixel_clock;
+	u32 dsi1_pll_fclk;	/* func clk for DISPC from DSI PLL */
+	/* Unit: kHz */
+	u32 dsi2_pll_fclk;	/* func clk for DSI from DSI PLL */
 	/* Unit: pixel clocks */
 	u16 hsw;	/* Horizontal synchronization pulse width */
 	/* Unit: pixel clocks */
@@ -273,6 +283,34 @@ struct omap_video_timings {
 	/* Unit: line clocks */
 	u16 vbp;	/* Vertical back porch */
 };
+
+struct omap_dsi_video_timings {
+	/* Unit: pixel clocks */
+	u16 hsa;        /* Horizontal synch active */
+	/* Unit: pixel clocks */
+	u16 hfp;        /* Horizontal front porch */
+	/* Unit: pixel clocks */
+	u16 hbp;        /* Horizontal back porch */
+	/* Unit: line clocks */
+	u16 vsa;        /* Vertical synch active */
+	/* Unit: line clocks */
+	u16 vfp;        /* Vertical front porch */
+	/* Unit: line clocks */
+	u16 vbp;        /* Vertical back porch */
+};
+
+struct omap_dsi_hs_mode_timing {
+	/* time in nsec */
+	u32 ths_prepare;
+	u32 ths_prepare_ths_zero;
+	u32 ths_trail;
+	u32 ths_exit;
+	u32 tlpx_half;
+	u32 tclk_trail;
+	u32 tclk_prepare;
+	u32 tclk_zero;
+};
+
 
 #ifdef CONFIG_OMAP2_DSS_VENC
 /* Hardcoded timings for tv modes. Venc only uses these to
@@ -392,6 +430,8 @@ struct omap_dss_device {
 
 		struct {
 			u8 datapairs;
+			unsigned pad_off_pe:1; /* pull pads if disabled */
+			unsigned pad_off_pu:1; /* pull up */
 		} sdi;
 
 		struct {
@@ -416,6 +456,9 @@ struct omap_dss_device {
 
 			bool ext_te;
 			u8 ext_te_gpio;
+			bool xfer_mode;
+			struct omap_dsi_video_timings vm_timing;
+			struct omap_dsi_hs_mode_timing hs_timing;
 		} dsi;
 
 		struct {
@@ -434,7 +477,7 @@ struct omap_dss_device {
 		enum omap_panel_config config;
 
 		u8 recommended_bpp;
-
+		unsigned long panel_id;
 		struct omap_dss_device *ctrl;
 	} panel;
 
@@ -496,6 +539,7 @@ struct omap_dss_device {
 
 	int (*enable_te)(struct omap_dss_device *dssdev, bool enable);
 	int (*get_te)(struct omap_dss_device *dssdev);
+	int (*wait_for_te)(struct omap_dss_device *dssdev);
 
 	u8 (*get_rotate)(struct omap_dss_device *dssdev);
 	int (*set_rotate)(struct omap_dss_device *dssdev, u8 rotate);
@@ -533,6 +577,8 @@ struct omap_dss_driver {
 
 	void (*setup_update)(struct omap_dss_device *dssdev,
 			u16 x, u16 y, u16 w, u16 h);
+	int (*hs_mode_timing)(struct omap_dss_device *display);
+	bool (*manual_te_trigger)(struct omap_dss_device *display);
 
 	int (*enable_te)(struct omap_dss_device *dssdev, bool enable);
 	int (*wait_for_te)(struct omap_dss_device *dssdev);

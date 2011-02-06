@@ -53,6 +53,11 @@
  * CORE powerdomain on OMAP3 is the worst case
  */
 #define PWRDM_MAX_CLKDMS	4
+/*
+ * Maximum number of FCLK register masks that can be associated with a
+ * powerdomain. CORE powerdomain on OMAP3 is the worst case
+ */
+#define PWRDM_MAX_FCLK		2
 
 /* XXX A completely arbitrary number. What is reasonable here? */
 #define PWRDM_TRANSITION_BAILOUT 100000
@@ -120,6 +125,8 @@ struct powerdomain {
 	int state;
 	unsigned state_counter[4];
 
+	u8 fclk_reg_amt;
+	u32 fclk_masks[PWRDM_MAX_FCLK];
 #ifdef CONFIG_PM_DEBUG
 	s64 timer;
 	s64 state_timer[4];
@@ -173,6 +180,7 @@ int pwrdm_disable_hdwr_sar(struct powerdomain *pwrdm);
 bool pwrdm_has_hdwr_sar(struct powerdomain *pwrdm);
 
 int pwrdm_wait_transition(struct powerdomain *pwrdm);
+int pwrdm_can_idle(struct powerdomain *pwrdm);
 
 int pwrdm_state_switch(struct powerdomain *pwrdm);
 int pwrdm_clkdm_state_switch(struct clockdomain *clkdm);

@@ -34,9 +34,14 @@
 #include "proc.h"
 #include "private_data.h"
 #include "linkage.h"
+#include "pvr_bridge_km.h"
 
 #if defined(SUPPORT_DRI_DRM)
 #include <drm/drmP.h>
+#include "pvr_drm.h"
+#if defined(PVR_SECURE_DRM_AUTH_EXPORT)
+#include "env_perproc.h"
+#endif
 #endif
 
 #if defined(SUPPORT_VGX)
@@ -543,6 +548,56 @@ PVRSRV_BridgeDispatchKM(struct file *pFile, IMG_UINT unref__ ioctlCmd, IMG_UINT3
 			}
 			break;
 		}
+	}
+#endif 
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	switch(cmd)
+	{
+		case PVRSRV_BRIDGE_MAP_DEV_MEMORY:
+		case PVRSRV_BRIDGE_MAP_DEVICECLASS_MEMORY:
+		{
+			PVRSRV_FILE_PRIVATE_DATA *psPrivateData;
+			int authenticated = pFile->authenticated;
+			PVRSRV_ENV_PER_PROCESS_DATA *psEnvPerProc;
+
+			if (authenticated)
+			{
+				break;
+			}
+
+			
+			psEnvPerProc = (PVRSRV_ENV_PER_PROCESS_DATA *)PVRSRVProcessPrivateData(psPerProc);
+			if (psEnvPerProc == IMG_NULL)
+			{
+				PVR_DPF((PVR_DBG_ERROR, "%s: Process private data not allocated", __FUNCTION__));
+				err = -EFAULT;
+				goto unlock_and_return;
+			}
+
+			list_for_each_entry(psPrivateData, &psEnvPerProc->sDRMAuthListHead, sDRMAuthListItem)
+			{
+				struct drm_file *psDRMFile = psPrivateData->psDRMFile;
+
+				if (pFile->master == psDRMFile->master)
+				{
+					authenticated |= psDRMFile->authenticated;
+					if (authenticated)
+					{
+						break;
+					}
+				}
+			}
+
+			if (!authenticated)
+			{
+				PVR_DPF((PVR_DBG_ERROR, "%s: Not authenticated for mapping device or device class memory", __FUNCTION__));
+				err = -EPERM;
+				goto unlock_and_return;
+			}
+			break;
+		}
+		default:
+			break;
 	}
 #endif 
 

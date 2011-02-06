@@ -44,6 +44,11 @@
 #include <asm/system.h>
 #include <asm/unaligned.h>
 
+#ifdef CONFIG_MACH_MAPPHONE
+#include <plat/board-mapphone.h>
+#include <plat/usb.h>
+#endif
+
 /*-------------------------------------------------------------------------*/
 
 /*
@@ -720,6 +725,7 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 	masked_status = status & INTR_MASK;
 	if (!masked_status) {		/* irq sharing? */
 		spin_unlock(&ehci->lock);
+		LOG_USBHOST_ACTIVITY(aUsbHostDbg, iUsbHostDbg, 0x81);
 		return IRQ_NONE;
 	}
 
@@ -739,8 +745,10 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 	if (likely ((status & (STS_INT|STS_ERR)) != 0)) {
 		if (likely ((status & STS_ERR) == 0))
 			COUNT (ehci->stats.normal);
-		else
+		else {
 			COUNT (ehci->stats.error);
+			LOG_USBHOST_ACTIVITY(aUsbHostDbg, iUsbHostDbg, 0x8C);
+		}
 		bh = 1;
 	}
 
@@ -751,12 +759,15 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 			ehci_writel(ehci, cmd & ~CMD_IAAD,
 					&ehci->regs->command);
 			ehci_dbg(ehci, "IAA with IAAD still set?\n");
+			LOG_USBHOST_ACTIVITY(aUsbHostDbg, iUsbHostDbg, 0x8D);
 		}
 		if (ehci->reclaim) {
 			COUNT(ehci->stats.reclaim);
 			end_unlink_async(ehci);
-		} else
+		} else {
 			ehci_dbg(ehci, "IAA with nothing to reclaim?\n");
+			LOG_USBHOST_ACTIVITY(aUsbHostDbg, iUsbHostDbg, 0x8E);
+		}
 	}
 
 	/* remote wakeup [4.3.1] */
@@ -767,8 +778,10 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 		pcd_status = status;
 
 		/* resume root hub? */
-		if (!(cmd & CMD_RUN))
+		if (!(cmd & CMD_RUN)) {
 			usb_hcd_resume_root_hub(hcd);
+			LOG_USBHOST_ACTIVITY(aUsbHostDbg, iUsbHostDbg, 0x82);
+		}
 
 		while (i--) {
 			int pstatus = ehci_readl(ehci,
@@ -791,6 +804,10 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 			ehci->reset_done[i] = jiffies + msecs_to_jiffies(25);
 			ehci_dbg (ehci, "port %d remote wakeup\n", i + 1);
 			mod_timer(&hcd->rh_timer, ehci->reset_done[i]);
+			LOG_USBHOST_ACTIVITY(aUsbHostDbg, iUsbHostDbg, 0x80);
+#ifdef CONFIG_HAS_WAKELOCK
+			wake_lock_timeout(&ehci->wake_lock_ehci_rwu, HZ/2);
+#endif
 		}
 	}
 
@@ -807,6 +824,7 @@ dead:
 		 * uses ehci_stop to clean up the rest
 		 */
 		bh = 1;
+		LOG_USBHOST_ACTIVITY(aUsbHostDbg, iUsbHostDbg, 0x8F);
 	}
 
 	if (bh)

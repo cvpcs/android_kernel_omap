@@ -160,6 +160,10 @@
 #define OMAP3_PRM_CLKOUT_CTRL_OFFSET	0x0070
 #define OMAP3430_PRM_CLKOUT_CTRL	OMAP34XX_PRM_REGADDR(OMAP3430_CCR_MOD, 0x0070)
 
+/* 36xx register offsets in GR_MOD */
+#define OMAP3_PRM_LDO_ABB_SETUP_OFFSET         0X00f0
+#define OMAP3_PRM_LDO_ABB_CTRL_OFFSET          0x00f4
+
 /*
  * Module specific PRM registers from PRM_BASE + domain offset
  *

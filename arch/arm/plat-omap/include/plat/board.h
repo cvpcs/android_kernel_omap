@@ -60,6 +60,7 @@ struct omap_camera_sensor_config {
 	int (*power_off)(void * data);
 };
 
+#ifndef CONFIG_MACH_MAPPHONE
 struct omap_usb_config {
 	/* Configure drivers according to the connectors on your board:
 	 *  - "A" connector (rectagular)
@@ -89,6 +90,7 @@ struct omap_usb_config {
 	int (*usbhost_standby_status)(void);
 	u8		usb_remote_wake_gpio;
 };
+#endif
 
 struct omap_lcd_config {
 	char panel_name[16];

@@ -145,9 +145,11 @@ int omap34xxcam_update_vbq(struct videobuf_buffer *vb)
 #ifndef CONFIG_VIDEO_OMAP3_HP3A
 	struct isph3a_aewb_xtrastats xtrastats;
 	struct isp_af_xtrastats af_xtrastats;
+	do_gettimeofday(&vb->ts);
+#else
+	ktime_get_ts((struct timespec *)&vb->ts);
 #endif
 
-	do_gettimeofday(&vb->ts);
 	vb->field_count = atomic_add_return(2, &fh->field_count);
 	vb->state = VIDEOBUF_DONE;
 #ifndef CONFIG_VIDEO_OMAP3_HP3A
@@ -405,9 +407,12 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 
 	if (wanted_pix_out->pixelformat == V4L2_PIX_FMT_W1S_PATT)
 		best_pix_in->pixelformat = V4L2_PIX_FMT_W1S_PATT;
-	else
-		best_pix_in->pixelformat = V4L2_PIX_FMT_SGRBG10;
-
+	else {
+		if (vdev->vfd->minor == CAM_DEVICE_SOC)
+			best_pix_in->pixelformat = V4L2_PIX_FMT_YUYV;
+		else
+			best_pix_in->pixelformat = V4L2_PIX_FMT_SGRBG10;
+	}
 	best_pix_out.height = INT_MAX >> 1;
 	best_pix_out.width = best_pix_out.height;
 

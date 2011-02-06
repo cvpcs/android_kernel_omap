@@ -208,6 +208,17 @@ int __init musb_platform_init(struct musb *musb)
 	omap_cfg_reg(AE5_2430_USB0HS_STP);
 #endif
 
+	/* Reset controller */
+	if (musb->set_clock)
+		musb->set_clock(musb->clock, 1);
+	else
+		clk_enable(musb->clock);
+	l = omap_readl(OTG_SYSCONFIG);
+	l |= SOFTRST;
+	omap_writel(l, OTG_SYSCONFIG);
+	while (!(RESETDONE & omap_readl(OTG_SYSSTATUS)))
+		cpu_relax();
+
 	/* We require some kind of external transceiver, hooked
 	 * up through ULPI.  TWL4030-family PMICs include one,
 	 * which needs a driver, drivers aren't always needed.
@@ -223,16 +234,16 @@ int __init musb_platform_init(struct musb *musb)
 	l = omap_readl(OTG_SYSCONFIG);
 	l &= ~ENABLEWAKEUP;	/* disable wakeup */
 	l &= ~NOSTDBY;		/* remove possible nostdby */
-	l |= SMARTSTDBY;	/* enable smart standby */
+	l &= ~SMARTSTDBY;	/* disable smart standby */
 	l &= ~AUTOIDLE;		/* disable auto idle */
 	l &= ~NOIDLE;		/* remove possible noidle */
+	l &= ~SMARTIDLE;	/* disable smart idle */
 	/*
 	 * MUSB AUTOIDLE and SMARTIDLE don't work in 3430.
 	 * Workaround by Richard Woodruff/TI
 	 */
 	if (!cpu_is_omap3430()) {
 		l |= AUTOIDLE;		/* enable auto idle */
-		l |= SMARTIDLE;		/* enable smart idle */
 	}
 
 	omap_writel(l, OTG_SYSCONFIG);
@@ -301,9 +312,6 @@ static int musb_platform_resume(struct musb *musb)
 	l &= ~ENABLEWAKEUP;	/* disable wakeup */
 	omap_writel(l, OTG_SYSCONFIG);
 
-	l = omap_readl(OTG_FORCESTDBY);
-	l &= ~ENABLEFORCE;	/* disable MSTANDBY */
-	omap_writel(l, OTG_FORCESTDBY);
 
 	return 0;
 }

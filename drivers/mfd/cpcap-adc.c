@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Motorola, Inc.
+ * Copyright (C) 2009-2010 Motorola, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -82,30 +82,39 @@ struct conversion_tbl {
 	enum conv_type conv_type;
 	int align_offset;
 	int conv_offset;
+	int cal_offset;
 	int multiplier;
 	int divider;
 };
 
 static struct conversion_tbl bank0_conversion[CPCAP_ADC_BANK0_NUM] = {
-	[CPCAP_ADC_AD0_BATTDETB] = {CONV_TYPE_MAPPING,   0,    0,     1,    1},
-	[CPCAP_ADC_BATTP] =        {CONV_TYPE_DIRECT,    0, 2400,  2300, 1023},
-	[CPCAP_ADC_VBUS] =         {CONV_TYPE_DIRECT,    0,    0, 10000, 1023},
-	[CPCAP_ADC_AD3] =          {CONV_TYPE_MAPPING,   0,    0,     1,    1},
-	[CPCAP_ADC_BPLUS_AD4] =    {CONV_TYPE_DIRECT,    0, 2400,  2300, 1023},
-	[CPCAP_ADC_CHG_ISENSE] =   {CONV_TYPE_DIRECT, -512,    2,  5000, 1023},
-	[CPCAP_ADC_BATTI_ADC] =    {CONV_TYPE_DIRECT, -512,    2,  5000, 1023},
-	[CPCAP_ADC_USB_ID] =       {CONV_TYPE_NONE,      0,    0,     1,    1},
+	[CPCAP_ADC_AD0_BATTDETB] =
+		{CONV_TYPE_MAPPING,   0,    0, 0,     1,    1},
+	[CPCAP_ADC_BATTP] =
+		{CONV_TYPE_DIRECT,    0, 2400, 0,  2300, 1023},
+	[CPCAP_ADC_VBUS] =
+		{CONV_TYPE_DIRECT,    0,    0, 0, 10000, 1023},
+	[CPCAP_ADC_AD3] =
+		{CONV_TYPE_MAPPING,   0,    0, 0,     1,    1},
+	[CPCAP_ADC_BPLUS_AD4] =
+		{CONV_TYPE_DIRECT,    0, 2400, 0,  2300, 1023},
+	[CPCAP_ADC_CHG_ISENSE] =
+		{CONV_TYPE_DIRECT, -512,    2, 0,  5000, 1023},
+	[CPCAP_ADC_BATTI_ADC] =
+		{CONV_TYPE_DIRECT, -512,    2, 0,  5000, 1023},
+	[CPCAP_ADC_USB_ID] =
+		{CONV_TYPE_NONE,      0,    0, 0,     1,    1},
 };
 
 static struct conversion_tbl bank1_conversion[CPCAP_ADC_BANK1_NUM] = {
-	[CPCAP_ADC_AD8] =          {CONV_TYPE_NONE,   0,    0,     1,    1},
-	[CPCAP_ADC_AD9] =          {CONV_TYPE_NONE,   0,    0,     1,    1},
-	[CPCAP_ADC_LICELL] =       {CONV_TYPE_DIRECT, 0,    0,  3400, 1023},
-	[CPCAP_ADC_HV_BATTP] =     {CONV_TYPE_NONE,   0,    0,     1,    1},
-	[CPCAP_ADC_TSX1_AD12] =    {CONV_TYPE_NONE,   0,    0,     1,    1},
-	[CPCAP_ADC_TSX2_AD13] =    {CONV_TYPE_NONE,   0,    0,     1,    1},
-	[CPCAP_ADC_TSY1_AD14] =    {CONV_TYPE_NONE,   0,    0,     1,    1},
-	[CPCAP_ADC_TSY2_AD15] =    {CONV_TYPE_NONE,   0,    0,     1,    1},
+	[CPCAP_ADC_AD8] =          {CONV_TYPE_NONE,   0,  0,  0,    1,    1},
+	[CPCAP_ADC_AD9] =          {CONV_TYPE_NONE,   0,  0,  0,    1,    1},
+	[CPCAP_ADC_LICELL] =       {CONV_TYPE_DIRECT, 0,  0,  0, 3400, 1023},
+	[CPCAP_ADC_HV_BATTP] =     {CONV_TYPE_NONE,   0,  0,  0,    1,    1},
+	[CPCAP_ADC_TSX1_AD12] =    {CONV_TYPE_NONE,   0,  0,  0,    1,    1},
+	[CPCAP_ADC_TSX2_AD13] =    {CONV_TYPE_NONE,   0,  0,  0,    1,    1},
+	[CPCAP_ADC_TSY1_AD14] =    {CONV_TYPE_NONE,   0,  0,  0,    1,    1},
+	[CPCAP_ADC_TSY2_AD15] =    {CONV_TYPE_NONE,   0,  0,  0,    1,    1},
 };
 
 static const unsigned short temp_map[MAX_TEMP_LVL][2] = {
@@ -410,6 +419,7 @@ static void adc_phase(struct cpcap_adc_request *req, int index)
 		tbl_index = (tbl_index % 2) ? CPCAP_ADC_BATTI_ADC :
 			    CPCAP_ADC_BATTP;
 
+	req->result[index] += conv_tbl[tbl_index].cal_offset;
 	req->result[index] += conv_tbl[tbl_index].align_offset;
 	req->result[index] *= phase_tbl[tbl_index].multiplier;
 	req->result[index] /= phase_tbl[tbl_index].divider;
@@ -454,12 +464,18 @@ static void adc_raw(struct cpcap_adc_request *req, int index)
 		tbl_index = (tbl_index % 2) ? CPCAP_ADC_BATTI_ADC :
 			    CPCAP_ADC_BATTP;
 
-	req->result[index] += conv_tbl[tbl_index].align_offset;
+	req->result[index] += conv_tbl[tbl_index].cal_offset;
 
-	if (req->result[index] < phase_tbl[tbl_index].min)
-		req->result[index] = phase_tbl[tbl_index].min;
-	else if (req->result[index] > phase_tbl[tbl_index].max)
-		req->result[index] = phase_tbl[tbl_index].max;
+	if (req->result[index] <
+	    (phase_tbl[tbl_index].min - conv_tbl[tbl_index].align_offset)) {
+		req->result[index] = (phase_tbl[tbl_index].min -
+				      conv_tbl[tbl_index].align_offset);
+	} else if (req->result[index] >
+		   (phase_tbl[tbl_index].max -
+		    conv_tbl[tbl_index].align_offset)) {
+		req->result[index] = (phase_tbl[tbl_index].max -
+				      conv_tbl[tbl_index].align_offset);
+	}
 }
 
 static void adc_result(struct cpcap_device *cpcap,
@@ -467,6 +483,18 @@ static void adc_result(struct cpcap_device *cpcap,
 {
 	int i;
 	int j;
+	unsigned short cal_data;
+
+	cal_data = 0;
+	cpcap_regacc_read(cpcap, CPCAP_REG_ADCAL1, &cal_data);
+	bank0_conversion[CPCAP_ADC_CHG_ISENSE].cal_offset =
+		((short)cal_data * -1) + 512;
+
+	cal_data = 0;
+	cpcap_regacc_read(cpcap, CPCAP_REG_ADCAL2, &cal_data);
+	bank0_conversion[CPCAP_ADC_BATTI_ADC].cal_offset =
+		((short)cal_data * -1) + 512;
+
 
 	for (i = CPCAP_REG_ADCD0; i <= CPCAP_REG_ADCD7; i++) {
 		j = i - CPCAP_REG_ADCD0;
@@ -591,17 +619,20 @@ static int __devinit cpcap_adc_probe(struct platform_device *pdev)
 
 	cal_data = 0;
 	cpcap_regacc_read(adc->cpcap, CPCAP_REG_ADCAL1, &cal_data);
-	bank0_conversion[CPCAP_ADC_CHG_ISENSE].align_offset =
-		((short)cal_data * -1);
+	bank0_conversion[CPCAP_ADC_CHG_ISENSE].cal_offset =
+		((short)cal_data * -1) + 512;
+
 	cal_data = 0;
 	cpcap_regacc_read(adc->cpcap, CPCAP_REG_ADCAL2, &cal_data);
-	bank0_conversion[CPCAP_ADC_BATTI_ADC].align_offset =
-		((short)cal_data * -1);
+	bank0_conversion[CPCAP_ADC_BATTI_ADC].cal_offset =
+		((short)cal_data * -1) + 512;
 
 	INIT_DELAYED_WORK(&adc->work, cpcap_adc_cancel);
 
 	cpcap_irq_register(adc->cpcap, CPCAP_IRQ_ADCDONE,
 			   cpcap_adc_irq, adc);
+
+	dev_info(&pdev->dev, "CPCAP ADC device probed\n");
 
 	return 0;
 }
@@ -640,7 +671,7 @@ static int __init cpcap_adc_init(void)
 {
 	return platform_driver_register(&cpcap_adc_driver);
 }
-module_init(cpcap_adc_init);
+subsys_initcall(cpcap_adc_init);
 
 static void __exit cpcap_adc_exit(void)
 {

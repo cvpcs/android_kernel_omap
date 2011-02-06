@@ -530,7 +530,7 @@ static int modem_open(struct tty_struct *tty,
 				port->interrupt_in_urb->dev = port->serial->dev;
 				retval =
 				    usb_submit_urb(port->interrupt_in_urb,
-						   GFP_KERNEL);
+						   GFP_ATOMIC);
 				if (retval) {
 					usb_kill_urb(port->interrupt_in_urb);
 					dev_err(&port->dev,
@@ -1104,7 +1104,7 @@ static int modem_resume(struct usb_interface *intf)
 				port->interrupt_in_urb->dev = port->serial->dev;
 				retval =
 					usb_submit_urb(port->interrupt_in_urb,
-						       GFP_KERNEL);
+						       GFP_ATOMIC);
 				if (retval) {
 					usb_kill_urb(port->interrupt_in_urb);
 					dev_err(&port->dev,

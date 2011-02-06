@@ -33,6 +33,7 @@ obj-$(CONFIG_ARCH_OMAP2)		+= pm24xx.o
 obj-$(CONFIG_ARCH_OMAP24XX)		+= sleep24xx.o
 obj-$(CONFIG_ARCH_OMAP3)		+= pm.o pm34xx.o sleep34xx.o cpuidle34xx.o
 obj-$(CONFIG_PM_DEBUG)			+= pm-debug.o
+obj-y					+= wakeup-timer.o
 obj-$(CONFIG_OMAP_SMARTREFLEX)		+= smartreflex.o
 endif
 
@@ -71,10 +72,6 @@ obj-$(CONFIG_MACH_OMAP3_BEAGLE)		+= board-omap3beagle.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP_LDP)		+= board-ldp.o \
 					   mmc-twl4030.o
-obj-$(CONFIG_MACH_ENCORE)		+= board-encore.o \
-					   mmc-twl4030.o \
-					   board-ldp-flash.o \
-					   board-boxer-wifi.o
 obj-$(CONFIG_MACH_OVERO)		+= board-overo.o \
 					   mmc-twl4030.o
 obj-$(CONFIG_MACH_OMAP3EVM)		+= board-omap3evm.o \
@@ -92,15 +89,32 @@ obj-$(CONFIG_MACH_OMAP_ZOOM2)		+= board-zoom2.o \
 obj-$(CONFIG_MACH_SHOLES)		+= board-sholes.o \
 					   board-sholes-camera.o \
 					   board-sholes-flash.o \
-					   board-sholes-panel.o \
 					   board-sholes-spi.o \
 					   board-sholes-sensors.o \
 					   board-sholes-hsmmc.o \
 					   board-sholes-keypad.o \
 					   board-sholes-wifi.o \
-					   board-sholes-mmcprobe.o \
-					   board-sholes-usbnet.o \
+					   board-sholes-mmcprobe.o 
 
+# usbnet temporarily disabled
+#					   board-sholes-usbnet.o \
+
+obj-$(CONFIG_MACH_MAPPHONE)             += board-mapphone.o \
+                                           board-mapphone-camera.o \
+                                           board-mapphone-flash.o \
+                                           board-mapphone-padconf.o \
+                                           board-mapphone-panel.o \
+                                           board-mapphone-spi.o \
+                                           board-mapphone-cpcap-client.o \
+                                           board-mapphone-sensors.o \
+                                           board-mapphone-hsmmc.o \
+                                           board-mapphone-keypad.o \
+                                           board-mapphone-wifi.o \
+                                           board-mapphone-gpio.o \
+                                           board-mapphone-mmcprobe.o \
+                                           board-mapphone-usb.o
+obj-$(CONFIG_MOT_FEAT_MDTV)             += board-mapphone-mdtv.o
+obj-$(CONFIG_EMU_UART_DEBUG)		+= board-mapphone-emu_uart.o
 obj-$(CONFIG_MACH_NOKIA_RX51)		+= board-rx51.o \
 					   board-rx51-sdram.o \
 					   board-rx51-peripherals.o \
@@ -135,3 +149,4 @@ obj-y					+= $(onenand-m) $(onenand-y)
 
 smc91x-$(CONFIG_SMC91X)			:= gpmc-smc91x.o
 obj-y					+= $(smc91x-m) $(smc91x-y)
+obj-$(CONFIG_PROC_OMAP_PHONE_ID)       	+= phoneid.o

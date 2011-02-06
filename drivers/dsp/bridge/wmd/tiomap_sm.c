@@ -94,6 +94,9 @@ DSP_STATUS CHNLSM_InterruptDSP2(struct WMD_DEV_CONTEXT *pDevContext,
 	DSP_STATUS status = DSP_SOK;
 	unsigned long timeout;
 	u32 temp;
+	u32 cnt = 0;
+	bool time_expired = true;
+
 
 	if (DSP_FAILED(status))
 		return DSP_EFAIL;
@@ -134,12 +137,21 @@ DSP_STATUS CHNLSM_InterruptDSP2(struct WMD_DEV_CONTEXT *pDevContext,
 		/* Restart the peripheral clocks */
 		DSP_PeripheralClocks_Enable(pDevContext, NULL);
 
-	timeout = jiffies + msecs_to_jiffies(1);
-	while (fifo_full((void __iomem *) pDevContext->dwMailBoxBase, 0)) {
-		if (time_after(jiffies, timeout)) {
-			printk(KERN_ERR "dspbridge: timed out waiting for mailbox\n");
-			return WMD_E_TIMEOUT;
+	/* Check the mailbox every 1 msec 10 times before giving up */
+	for (cnt = 0; (cnt < 10) && (time_expired); cnt++) {
+		timeout = jiffies + msecs_to_jiffies(1);
+		time_expired = false;
+		while (fifo_full((void __iomem *)pDevContext->dwMailBoxBase, 0)) {
+			if (time_after(jiffies, timeout)) {
+				time_expired = true;
+				printk(KERN_WARNING "Mailbox full trying again count %d \n", cnt);
+				break;
+			}
 		}
+	}
+	if ((cnt == 10) && (time_expired)) {
+		printk(KERN_ERR "dspbridge: Mailbox was not empty after %d trials , no message written !!!\n", cnt);
+		return WMD_E_TIMEOUT;
 	}
 	DBG_Trace(DBG_LEVEL3, "writing %x to Mailbox\n",
 		  wMbVal);

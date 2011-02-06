@@ -413,6 +413,8 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 	int fmtd_index;
 	int rval;
 	struct v4l2_pix_format best_pix_out;
+	int in_aspect_ratio;
+	int out_aspect_ratio;
 
 	if (best_ival->numerator == 0
 	    || best_ival->denominator == 0)
@@ -468,6 +470,29 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 				pix_tmp_out.pixelformat,
 				wanted_pix_out->width, wanted_pix_out->height,
 				wanted_pix_out->pixelformat);
+
+			in_aspect_ratio = 0;
+			out_aspect_ratio = 0;
+			if (pix_tmp_out.width > pix_tmp_out.height) {
+				in_aspect_ratio =
+					(pix_tmp_in.width * 256)/
+					pix_tmp_in.height;
+				out_aspect_ratio =
+					(pix_tmp_out.width * 256)/
+					(pix_tmp_out.height);
+			}
+
+			if ((in_aspect_ratio -
+					out_aspect_ratio) > 50) {
+				dev_dbg(&vdev->vfd->dev,
+					"aspect ratio diff: "
+					"w %d\th %d\tw %d\th %d\n",
+					pix_tmp_out.width,
+					pix_tmp_out.height,
+					pix_tmp_in.width,
+					pix_tmp_in.height);
+				continue;
+			}
 
 #define IS_SMALLER_OR_EQUAL(pix1, pix2)				\
 			((pix1)->width + (pix1)->height		\
@@ -539,10 +564,11 @@ static int try_pix_parm(struct omap34xxcam_videodev *vdev,
 				if (FPS_ABS_DIFF(fps, frmi.discrete)
 				    < FPS_ABS_DIFF(fps, *best_ival)) {
 					dev_dbg(&vdev->vfd->dev, "closer fps: "
-						"fps %ld\t fps %ld\n",
-						FPS_ABS_DIFF(fps,
+						"fps %d\t fps %d\n",
+						(int)FPS_ABS_DIFF(fps,
 							     frmi.discrete),
-						FPS_ABS_DIFF(fps, *best_ival));
+						(int)FPS_ABS_DIFF(fps,
+								  *best_ival));
 					goto do_it_now;
 				}
 

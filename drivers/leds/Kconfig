@@ -51,13 +51,6 @@ config LEDS_AMS_DELTA
 	help
 	  This option enables support for the LEDs on Amstrad Delta (E3).
 
-config LEDS_OMAP_PWM
-	tristate "LED Support for OMAP PWM-controlled LEDs"
-	depends on LEDS_CLASS && ARCH_OMAP && OMAP_DM_TIMER
-	help
-	  This options enables support for LEDs connected to GPIO lines
-	  controlled by a PWM timer on OMAP CPUs.
-
 config LEDS_NET48XX
 	tristate "LED Support for Soekris net48xx series Error LED"
 	depends on LEDS_CLASS && SCx200_GPIO
@@ -249,6 +242,36 @@ config LEDS_SHOLES
 	help
 	  This option enables support for LEDs on Sholes.
 
+config LEDS_BUTTON
+        tristate "LED Support for Button lighting device"
+        depends on LEDS_CLASS
+        help
+          This option enables support for Button LEDs.
+
+config LEDS_DISPLAY
+        tristate "LED Support for Display lighting device"
+        depends on LEDS_CLASS
+        help
+          This option enables support for display LEDs.
+
+config LEDS_KPAD
+        tristate "LED Support for Keypad lighting device"
+        depends on LEDS_CLASS
+        help
+          This option enables support for Keypad LEDs.
+
+config LEDS_AF_LED
+        tristate "LED Support for AF LED operatiion"
+        depends on LEDS_CLASS
+        help
+          This option enables support for LEDs connected to CPCAP.
+
+config LEDS_FLASH_RESET
+        tristate "LED Support for FLASH_RESET pin control"
+        depends on LEDS_CLASS && LEDS_BD7885
+        help
+          This option enables support for LED's FLASH_RESET pin operation.
+
 config LEDS_LM3554
 	tristate "LM3554 driver"
 	depends on LEDS_CLASS && I2C && MFD_CPCAP
@@ -272,6 +295,26 @@ config LEDS_LM3530
 	depends on LEDS_CLASS && I2C
 	help
 	  This option enables support for the LM3530 .
+
+config LEDS_LM3559
+	tristate "LM3559 driver"
+	depends on LEDS_CLASS && I2C
+	help
+	  This option enables support for the LM3559 .
+
+config LEDS_BD7885
+        tristate "LED Support for BD7885 I2C chips"
+        depends on LEDS_CLASS && I2C
+        help
+          This option enables support for LEDs connected to BD7885
+          LED driver chips accessed via the I2C bus.  Supported
+
+config LEDS_BU9847
+        tristate "LED Support for BU9847 I2C chips"
+        depends on LEDS_CLASS && I2C
+        help
+          This option enables support for LEDs connected to BU9847
+          LED driver chips accessed via the I2C bus.  Supported
 
 comment "LED Triggers"
 

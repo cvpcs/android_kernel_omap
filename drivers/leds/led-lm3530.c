@@ -28,8 +28,13 @@
 #include <linux/led-lm3530.h>
 #include <linux/types.h>
 
-int als_resistor_val[16] = {1, 9260, 4630, 3090, 2310,
-1850, 1540, 1320, 1160, 1030, 925, 842, 772, 712, 661, 617};
+#define GEN_CONFIG_PWM_BIT 0x20
+
+static int pwm_disable_manual = 0;
+static int pwm_disable_auto = 0;
+
+int als_resistor_val[16] = {1, 13531, 9011, 5411, 2271, 1946, 1815, 1600, 1138,
+			    1050, 1011, 941, 759, 719, 700, 667};
 
 struct lux_data {
 	int lux_value;
@@ -187,6 +192,10 @@ static void ld_lm3530_brightness_set(struct led_classdev *led_cdev,
 	else
 		brightness = als_data->als_pdata->manual_current;
 
+	if (lm3530_debug)
+		pr_info("%s: value = 0x%x brightness = 0x%x\n",
+			 __func__, value, brightness);
+
 	if (value == LED_OFF) {
 		als_data->led_on = 0;
 		brightness &= LD_LM3530_LAST_BRIGHTNESS_MASK;
@@ -267,7 +276,7 @@ static ssize_t ld_lm3530_als_store(struct device *dev, struct device_attribute
 		als_data->mode = AUTOMATIC;
 	} else {
 		als_data->mode = mode_value;
-		config = LM3530_MANUAL_VALUE;
+		config = als_data->als_pdata->manual_als_config;
 		if (mode_value != MANUAL)
 			config |= LM3530_SENSOR_ENABLE;
 		error = lm3530_write_reg(als_data, LM3530_ALS_CONFIG, config);
@@ -389,10 +398,11 @@ static ssize_t ld_lm3530_registers_store(struct device *dev,
 		return -1;
 	}
 
-	if (sscanf(buf, "%s %x", name, &value) != 2) {
+	if (sscanf(buf, "%29s %x", name, &value) != 2) {
 		pr_err("%s:unable to parse input\n", __func__);
 		return -1;
 	}
+	name[sizeof(name)-1] = '\0';
 
 	reg_count = sizeof(lm3530_regs) / sizeof(lm3530_regs[0]);
 	for (i = 0; i < reg_count; i++) {
@@ -483,8 +493,13 @@ static int convert_to_lux(struct lm3530_data *als_data, int zone_value)
 		divisor = 1;
 
 	mv_conv = ((zone_value * 1000) / 255);
-	current_conv = (mv_conv * 1000) /
+	if ((als_data->als_pdata->als_resistor_sel & 0xF0) == 0)
+		current_conv = (mv_conv * 1000) /
+		als_resistor_val[als_data->als_pdata->als_resistor_sel];
+	else
+		current_conv = (mv_conv * 1000) /
 		als_resistor_val[(als_data->als_pdata->als_resistor_sel & 0xF0) >> 4];
+
 	return (current_conv * 100) / divisor;
 }
 
@@ -581,6 +596,8 @@ static int ld_lm3530_probe(struct i2c_client *client,
 	als_data->led_dev.name = LD_LM3530_LED_DEV;
 	als_data->led_dev.brightness_set = ld_lm3530_brightness_set;
 	als_data->led_on = 1;
+
+	als_data->last_requested_brightness = pdata->power_up_gen_config;
 
 	als_data->working_queue = create_singlethread_workqueue("als_wq");
 	if (!als_data->working_queue) {
@@ -709,6 +726,15 @@ static int lm3530_suspend(struct i2c_client *client, pm_message_t mesg)
 	if (lm3530_debug)
 		pr_info("%s: Suspending\n", __func__);
 
+	if (als_data->als_pdata->gen_config & GEN_CONFIG_PWM_BIT) {
+		pwm_disable_auto = 1;
+		als_data->als_pdata->gen_config &= ~GEN_CONFIG_PWM_BIT;
+	}
+	if (als_data->als_pdata->manual_current & GEN_CONFIG_PWM_BIT) {
+		pwm_disable_manual = 1;
+		als_data->als_pdata->manual_current &= ~GEN_CONFIG_PWM_BIT;
+	}
+
 	disable_irq(als_data->client->irq);
 	ret = cancel_work_sync(&als_data->wq);
 	if (ret) {
@@ -730,6 +756,15 @@ static int lm3530_resume(struct i2c_client *client)
 	/* Work around a HW issue that the HW will not generate an
 	interrupt when enabled */
 	queue_work(als_data->working_queue, &als_data->wq);
+
+	if (pwm_disable_auto) {
+		pwm_disable_auto = 0;
+		als_data->als_pdata->gen_config |= GEN_CONFIG_PWM_BIT;
+	}
+	if (pwm_disable_manual) {
+		pwm_disable_manual = 0;
+		als_data->als_pdata->manual_current |= GEN_CONFIG_PWM_BIT;
+	}
 
 	return 0;
 }

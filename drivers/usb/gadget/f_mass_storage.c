@@ -76,11 +76,11 @@
 
 #include "gadget_chips.h"
 
+#ifdef CONFIG_USB_MOT_ANDROID
+#include "f_mot_android.h"
+#endif
 
 #define BULK_BUFFER_SIZE           4096
-
-/* flush after every 4 meg of writes to avoid excessive block level caching */
-#define MAX_UNFLUSHED_BYTES (4 * 1024 * 1024)
 
 /*-------------------------------------------------------------------------*/
 
@@ -136,6 +136,17 @@ static const char shortname[] = DRIVER_NAME;
 #define INFO(d, fmt, args...) \
 	dev_info(&(d)->cdev->gadget->dev , fmt , ## args)
 
+
+#ifdef CONFIG_USB_MOT_ANDROID
+static int cdrom_enable ;
+
+module_param_named(cdrom, cdrom_enable, bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(cdrom, "true to emulate cdrom instead of disk");
+
+/* SCSI device types */
+#define TYPE_DISK      0x00
+#define TYPE_CDROM     0x05
+#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -202,6 +213,12 @@ struct bulk_cs_wrap {
 #define SC_WRITE_10			0x2a
 #define SC_WRITE_12			0xaa
 
+#ifdef CONFIG_USB_MOT_ANDROID
+#define SC_READ_TOC         0x43
+#define SC_READ_HEADER      0x44
+#define SC_MOT_MODE_SWITCH      0xD6
+#endif
+
 /* SCSI Sense Key/Additional Sense Code/ASC Qualifier values */
 #define SS_NO_SENSE				0
 #define SS_COMMUNICATION_FAILURE		0x040800
@@ -229,12 +246,12 @@ struct lun {
 	struct file	*filp;
 	loff_t		file_length;
 	loff_t		num_sectors;
-	unsigned int unflushed_bytes;
 
 	unsigned int	ro : 1;
 	unsigned int	prevent_medium_removal : 1;
 	unsigned int	registered : 1;
 	unsigned int	info_valid : 1;
+	unsigned int	cdrom:1;
 
 	u32		sense_data;
 	u32		sense_data_info;
@@ -255,7 +272,11 @@ static struct lun *dev_to_lun(struct device *dev)
 #define EP0_BUFSIZE	256
 
 /* Number of buffers we will use.  2 is enough for double-buffering */
+#ifdef CONFIG_USB_MOT_ANDROID
+#define NUM_BUFFERS     16
+#else
 #define NUM_BUFFERS	2
+#endif
 
 enum fsg_buffer_state {
 	BUF_STATE_EMPTY = 0,
@@ -396,7 +417,7 @@ static struct fsg_dev			*the_fsg;
 
 static void	close_backing_file(struct fsg_dev *fsg, struct lun *curlun);
 static void	close_all_backing_files(struct fsg_dev *fsg);
-static int fsync_sub(struct lun *curlun);
+
 
 /*-------------------------------------------------------------------------*/
 
@@ -474,6 +495,26 @@ static void put_be32(u8 *buf, u32 val)
  * descriptors are built on demand.  Also the (static) config and interface
  * descriptors are adjusted during fsg_bind().
  */
+#ifdef CONFIG_USB_MOT_ANDROID
+
+#define STRING_INTERFACE        0
+
+/* static strings, in UTF-8 */
+static struct usb_string usbmsc_string_defs[] = {
+	[STRING_INTERFACE].s = "Motorola MSD Interface",
+	{  /* ZEROES END LIST */ },
+};
+
+static struct usb_gadget_strings usbmsc_string_table = {
+	.language =             0x0409, /* en-us */
+	.strings =              usbmsc_string_defs,
+};
+
+static struct usb_gadget_strings *usbmsc_strings[] = {
+	&usbmsc_string_table,
+	NULL,
+};
+#endif
 
 /* There is only one interface. */
 
@@ -601,7 +642,6 @@ static void bulk_in_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct fsg_dev		*fsg = ep->driver_data;
 	struct fsg_buffhd	*bh = req->context;
-	unsigned long		flags;
 
 	if (req->status || req->actual != req->length)
 		DBG(fsg, "%s --> %d, %u/%u\n", __func__,
@@ -609,18 +649,17 @@ static void bulk_in_complete(struct usb_ep *ep, struct usb_request *req)
 
 	/* Hold the lock while we update the request and buffer states */
 	smp_wmb();
-	spin_lock_irqsave(&fsg->lock, flags);
+	spin_lock(&fsg->lock);
 	bh->inreq_busy = 0;
 	bh->state = BUF_STATE_EMPTY;
 	wakeup_thread(fsg);
-	spin_unlock_irqrestore(&fsg->lock, flags);
+	spin_unlock(&fsg->lock);
 }
 
 static void bulk_out_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct fsg_dev		*fsg = ep->driver_data;
 	struct fsg_buffhd	*bh = req->context;
-	unsigned long		flags;
 
 	dump_msg(fsg, "bulk-out", req->buf, req->actual);
 	if (req->status || req->actual != bh->bulk_out_intended_length)
@@ -630,11 +669,11 @@ static void bulk_out_complete(struct usb_ep *ep, struct usb_request *req)
 
 	/* Hold the lock while we update the request and buffer states */
 	smp_wmb();
-	spin_lock_irqsave(&fsg->lock, flags);
+	spin_lock(&fsg->lock);
 	bh->outreq_busy = 0;
 	bh->state = BUF_STATE_FULL;
 	wakeup_thread(fsg);
-	spin_unlock_irqrestore(&fsg->lock, flags);
+	spin_unlock(&fsg->lock);
 }
 
 static int fsg_function_setup(struct usb_function *f,
@@ -713,16 +752,15 @@ static void start_transfer(struct fsg_dev *fsg, struct usb_ep *ep,
 		enum fsg_buffer_state *state)
 {
 	int	rc;
-	unsigned long		flags;
 
 	DBG(fsg, "start_transfer req: %p, req->buf: %p\n", req, req->buf);
 	if (ep == fsg->bulk_in)
 		dump_msg(fsg, "bulk-in", req->buf, req->length);
 
-	spin_lock_irqsave(&fsg->lock, flags);
+	spin_lock_irq(&fsg->lock);
 	*pbusy = 1;
 	*state = BUF_STATE_BUSY;
-	spin_unlock_irqrestore(&fsg->lock, flags);
+	spin_unlock_irq(&fsg->lock);
 	rc = usb_ep_queue(ep, req, GFP_KERNEL);
 	if (rc != 0) {
 		*pbusy = 0;
@@ -1046,13 +1084,6 @@ static int do_write(struct fsg_dev *fsg)
 			amount_left_to_write -= nwritten;
 			fsg->residue -= nwritten;
 
-#ifdef MAX_UNFLUSHED_BYTES
-			curlun->unflushed_bytes += nwritten;
-			if (curlun->unflushed_bytes >= MAX_UNFLUSHED_BYTES) {
-				fsync_sub(curlun);
-				curlun->unflushed_bytes = 0;
-			}
-#endif
 			/* If an error occurred, report it and its position */
 			if (nwritten < amount) {
 				curlun->sense_data = SS_WRITE_ERROR;
@@ -1068,11 +1099,19 @@ static int do_write(struct fsg_dev *fsg)
 			}
 			continue;
 		}
-
+#ifdef CONFIG_USB_MOT_ANDROID
+		/* Do not wait here. Just check for any pending signals and
+			* continue with the next BH to process */
+		if (signal_pending(current)) {
+			rc = -EINTR;
+			return rc;
+		}
+#else
 		/* Wait for something to happen */
 		rc = sleep_thread(fsg);
 		if (rc)
 			return rc;
+#endif
 	}
 
 	return -EIO;		/* No default reply */
@@ -1250,10 +1289,16 @@ static int do_inquiry(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 		fsg->bad_lun_okay = 1;
 		memset(buf, 0, 36);
 		buf[0] = 0x7f;		/* Unsupported, no device-type */
+#ifdef CONFIG_USB_MOT_ANDROID
+		buf[4] = 31;    /* Additional length */
+#endif
 		return 36;
 	}
 
 	memset(buf, 0, 8);	/* Non-removable, direct-access device */
+#ifdef CONFIG_USB_MOT_ANDROID
+	buf[0] = (fsg->curlun->cdrom ? TYPE_CDROM : TYPE_DISK);
+#endif
 
 	buf[1] = 0x80;	/* set removable bit */
 	buf[2] = 2;		/* ANSI SCSI level 2 */
@@ -1338,6 +1383,156 @@ static int do_read_capacity(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 	return 8;
 }
 
+#ifdef CONFIG_USB_MOT_ANDROID
+static void store_cdrom_address(u8 *dest, int msf, u32 addr)
+{
+	if (msf) {
+		/* Convert to Minutes-Seconds-Frames */
+		addr >>= 2;     /* Convert to 2048-byte frames */
+		addr += 2 * 75; /* Lead-in occupies 2 seconds */
+		dest[3] = addr % 75;    /* Frames */
+		addr /= 75;
+		dest[2] = addr % 60;    /* Seconds */
+		addr /= 60;
+		dest[1] = addr; /* Minutes */
+		dest[0] = 0;    /* Reserved */
+	} else {
+		 /* Absolute sector */
+		put_be32(dest, addr);
+	}
+}
+
+static int do_read_header(struct fsg_dev *fsg, struct fsg_buffhd *bh)
+{
+	struct lun *curlun = fsg->curlun;
+	int msf = fsg->cmnd[1] & 0x02;
+	u32 lba = get_be32(&fsg->cmnd[2]);
+	u8 *buf = (u8 *) bh->buf;
+
+	if ((fsg->cmnd[1] & ~0x02) != 0) {      /* Mask away MSF */
+		curlun->sense_data = SS_INVALID_FIELD_IN_CDB;
+		return -EINVAL;
+	}
+	if (lba >= curlun->num_sectors) {
+		curlun->sense_data = SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
+		return -EINVAL;
+	}
+
+	memset(buf, 0, 8);
+	buf[0] = 0x01;          /* 2048 bytes of user data, rest is EC */
+	store_cdrom_address(&buf[4], msf, lba);
+	return 8;
+}
+
+struct toc_header {
+	u8 data_len_msb;
+	u8 data_len_lsb;
+	u8 first_track_number;
+	u8 last_track_number;
+};
+
+struct toc_descriptor {
+	u8 ctrl;
+	u8 adr;
+	u8 tno;
+	u8 point;
+	u8 min;
+	u8 sec;
+	u8 frame;
+	u8 zero;
+	u8 pmin;
+	u8 psec;
+	u8 pframe;
+};
+
+static int build_toc_response_buf(u8 *dest)
+{
+	struct toc_header *pheader = (struct toc_header *)dest;
+	struct toc_descriptor *pdesc;
+
+	/* build header */
+	pheader->data_len_msb = 0x00;
+	pheader->data_len_lsb = 0x2E; /* TOC data length */
+	pheader->first_track_number = 0x01;
+	pheader->last_track_number = 0x01;
+
+	/* toc descriptor 1 */
+	pdesc = (struct toc_descriptor *)&dest[4];
+	pdesc->ctrl = 0x01;
+	pdesc->adr = 0x16;
+	pdesc->tno = 0x00;
+	pdesc->point = 0xA0;
+	pdesc->min = 0x00;
+	pdesc->sec = 0x00;
+	pdesc->frame = 0x00;
+	pdesc->zero = 0x00;
+	pdesc->pmin = 0x01;	/* first track number */
+	pdesc->psec = 0x00;
+	pdesc->pframe = 0x00;
+
+	/* toc descriptor 2 */
+	pdesc = pdesc + 1;
+	pdesc->ctrl = 0x01;
+	pdesc->adr = 0x16;
+	pdesc->tno = 0x00;
+	pdesc->point = 0xA1;
+	pdesc->min = 0x00;
+	pdesc->sec = 0x00;
+	pdesc->frame = 0x00;
+	pdesc->zero = 0x00;
+	pdesc->pmin = 0x01;	/* last track number */
+	pdesc->psec = 0x00;
+	pdesc->pframe = 0x00;
+
+	/* toc descriptor 3 */
+	pdesc = pdesc + 1;
+	pdesc->ctrl = 0x01;
+	pdesc->adr = 0x16;
+	pdesc->tno = 0x00;
+	pdesc->point = 0xA2;
+	pdesc->min = 0x00;
+	pdesc->sec = 0x00;
+	pdesc->frame = 0x00;
+	pdesc->zero = 0x00;
+	pdesc->pmin = 0x4F;	/* pmin, psec, pframe represents */
+	pdesc->psec = 0x21;	/* start position of lead-out */
+	pdesc->pframe = 0x029;
+
+	/* toc descriptor 4 */
+	pdesc = pdesc + 1;
+	pdesc->ctrl = 0x01;
+	pdesc->adr = 0x14;
+	pdesc->tno = 0x00;
+	pdesc->point = 0x01;
+	pdesc->min = 0x00;
+	pdesc->sec = 0x00;
+	pdesc->frame = 0x00;
+	pdesc->zero = 0x00;
+	pdesc->pmin = 0x00;	/* pmin, psec, pframe represents */
+	pdesc->psec = 0x02;	/* start position of track */
+	pdesc->pframe = 0x00;
+
+	/* return total packet length */
+	return (sizeof(struct toc_descriptor)*4) + sizeof(struct toc_header);
+}
+
+static int do_read_toc(struct fsg_dev *fsg, struct fsg_buffhd *bh)
+{
+	struct lun *curlun = fsg->curlun;
+	int start_track = fsg->cmnd[6];
+	u8 *buf = (u8 *) bh->buf;
+	int toc_buf_len = 0;
+
+	if ((fsg->cmnd[1] & ~0x02) != 0 ||      /* Mask away MSF */
+		start_track > 1) {
+		curlun->sense_data = SS_INVALID_FIELD_IN_CDB;
+		return -EINVAL;
+	}
+
+	toc_buf_len = build_toc_response_buf(buf);
+	return toc_buf_len;
+}
+#endif
 
 static int do_mode_sense(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 {
@@ -1915,6 +2110,30 @@ static int do_scsi_command(struct fsg_dev *fsg)
 			reply = do_read_capacity(fsg, bh);
 		break;
 
+#ifdef CONFIG_USB_MOT_ANDROID
+	case SC_READ_HEADER:
+		if (!fsg->curlun->cdrom)
+			goto unknown_cmnd;
+		fsg->data_size_from_cmnd = get_be16(&fsg->cmnd[7]);
+		reply = check_command(fsg, 10, DATA_DIR_TO_HOST,
+			(3 << 7) | (0x1f << 1), 1,
+		"READ HEADER");
+		if (reply == 0)
+			reply = do_read_header(fsg, bh);
+		break;
+
+	case SC_READ_TOC:
+		if (!fsg->curlun->cdrom)
+			goto unknown_cmnd;
+		fsg->data_size_from_cmnd = get_be16(&fsg->cmnd[7]);
+		reply = check_command(fsg, 10, DATA_DIR_TO_HOST,
+		(0xf << 6) | (1 << 1), 1,
+		"READ TOC");
+		if (reply == 0)
+			reply = do_read_toc(fsg, bh);
+		break;
+#endif
+
 	case SC_READ_FORMAT_CAPACITIES:
 		fsg->data_size_from_cmnd = get_be16(&fsg->cmnd[7]);
 		if ((reply = check_command(fsg, 10, DATA_DIR_TO_HOST,
@@ -1989,6 +2208,18 @@ static int do_scsi_command(struct fsg_dev *fsg)
 			reply = do_write(fsg);
 		break;
 
+#ifdef CONFIG_USB_MOT_ANDROID
+	case SC_MOT_MODE_SWITCH:
+		{
+			u8 mode;
+			fsg->data_size_from_cmnd = 0;
+			mode = fsg->cmnd[10];
+			mode_switch_cb((int)mode);
+			reply = 0;
+			break;
+		}
+#endif
+
 	/* Some mandatory commands that we recognize but don't implement.
 	 * They don't mean much in this setting.  It's left as an exercise
 	 * for anyone interested to implement RESERVE and RELEASE in terms
@@ -2000,6 +2231,9 @@ static int do_scsi_command(struct fsg_dev *fsg)
 		/* Fall through */
 
 	default:
+#ifdef CONFIG_USB_MOT_ANDROID
+unknown_cmnd:
+#endif
 		fsg->data_size_from_cmnd = 0;
 		sprintf(unknown, "Unknown x%02x", fsg->cmnd[0]);
 		if ((reply = check_command(fsg, fsg->cmnd_size,
@@ -2172,19 +2406,6 @@ reset:
 		fsg->bulk_out_enabled = 0;
 	}
 
-	/* Deallocate the requests */
-	for (i = 0; i < NUM_BUFFERS; ++i) {
-		struct fsg_buffhd *bh = &fsg->buffhds[i];
-		if (bh->inreq) {
-			usb_ep_free_request(fsg->bulk_in, bh->inreq);
-			bh->inreq = NULL;
-		}
-		if (bh->outreq) {
-			usb_ep_free_request(fsg->bulk_out, bh->outreq);
-			bh->outreq = NULL;
-		}
-	}
-
 
 	fsg->running = 0;
 	if (altsetting < 0 || rc != 0)
@@ -2204,22 +2425,6 @@ reset:
 	fsg->bulk_out_enabled = 1;
 	fsg->bulk_out_maxpacket = le16_to_cpu(d->wMaxPacketSize);
 
-	/* Allocate the requests */
-	for (i = 0; i < NUM_BUFFERS; ++i) {
-		struct fsg_buffhd	*bh = &fsg->buffhds[i];
-
-		rc = alloc_request(fsg, fsg->bulk_in, &bh->inreq);
-		if (rc != 0)
-			goto reset;
-		rc = alloc_request(fsg, fsg->bulk_out, &bh->outreq);
-		if (rc != 0)
-			goto reset;
-		bh->inreq->buf = bh->outreq->buf = bh->buf;
-		bh->inreq->context = bh->outreq->context = bh;
-		bh->inreq->complete = bulk_in_complete;
-		bh->outreq->complete = bulk_out_complete;
-	}
-
 	fsg->running = 1;
 	for (i = 0; i < fsg->nluns; ++i)
 		fsg->luns[i].unit_attention_data = SS_RESET_OCCURRED;
@@ -2231,9 +2436,8 @@ static void adjust_wake_lock(struct fsg_dev *fsg)
 {
 	int ums_active = 0;
 	int i;
-	unsigned long		flags;
 
-	spin_lock_irqsave(&fsg->lock, flags);
+	spin_lock_irq(&fsg->lock);
 
 	if (fsg->config) {
 		for (i = 0; i < fsg->nluns; ++i) {
@@ -2247,7 +2451,7 @@ static void adjust_wake_lock(struct fsg_dev *fsg)
 	else
 		wake_unlock(&fsg->wake_lock);
 
-	spin_unlock_irqrestore(&fsg->lock, flags);
+	spin_unlock_irq(&fsg->lock);
 }
 
 /*
@@ -2262,19 +2466,18 @@ static int do_set_config(struct fsg_dev *fsg, u8 new_config)
 {
 	int	rc = 0;
 
+	if (new_config == fsg->config)
+		return rc;
+
 	/* Disable the single interface */
 	if (fsg->config != 0) {
 		DBG(fsg, "reset config\n");
 		fsg->config = 0;
-		rc = do_set_interface(fsg, -1);
 	}
 
 	/* Enable the interface */
-	if (new_config != 0) {
+	if (new_config != 0)
 		fsg->config = new_config;
-		if ((rc = do_set_interface(fsg, 0)) != 0)
-			fsg->config = 0;	// Reset on errors
-	}
 
 	switch_set_state(&fsg->sdev, new_config);
 	adjust_wake_lock(fsg);
@@ -2289,13 +2492,11 @@ static void handle_exception(struct fsg_dev *fsg)
 	siginfo_t		info;
 	int			sig;
 	int			i;
-	int			num_active;
 	struct fsg_buffhd	*bh;
 	enum fsg_state		old_state;
 	u8			new_config;
 	struct lun		*curlun;
 	int			rc;
-	unsigned long		flags;
 
 	DBG(fsg, "handle_exception state: %d\n", (int)fsg->state);
 	/* Clear the existing signals.  Anything but SIGUSR1 is converted
@@ -2309,28 +2510,6 @@ static void handle_exception(struct fsg_dev *fsg)
 				DBG(fsg, "Main thread exiting on signal\n");
 			raise_exception(fsg, FSG_STATE_EXIT);
 		}
-	}
-
-	/* Cancel all the pending transfers */
-	for (i = 0; i < NUM_BUFFERS; ++i) {
-		bh = &fsg->buffhds[i];
-		if (bh->inreq_busy)
-			usb_ep_dequeue(fsg->bulk_in, bh->inreq);
-		if (bh->outreq_busy)
-			usb_ep_dequeue(fsg->bulk_out, bh->outreq);
-	}
-
-	/* Wait until everything is idle */
-	for (;;) {
-		num_active = 0;
-		for (i = 0; i < NUM_BUFFERS; ++i) {
-			bh = &fsg->buffhds[i];
-			num_active += bh->outreq_busy;
-		}
-		if (num_active == 0)
-			break;
-		if (sleep_thread(fsg))
-			return;
 	}
 
 	/*
@@ -2347,7 +2526,7 @@ static void handle_exception(struct fsg_dev *fsg)
 	}
 	/* Reset the I/O buffer states and pointers, the SCSI
 	 * state, and the exception.  Then invoke the handler. */
-	spin_lock_irqsave(&fsg->lock, flags);
+	spin_lock_irq(&fsg->lock);
 
 	for (i = 0; i < NUM_BUFFERS; ++i) {
 		bh = &fsg->buffhds[i];
@@ -2372,7 +2551,7 @@ static void handle_exception(struct fsg_dev *fsg)
 		}
 		fsg->state = FSG_STATE_IDLE;
 	}
-	spin_unlock_irqrestore(&fsg->lock, flags);
+	spin_unlock_irq(&fsg->lock);
 
 	/* Carry out any extra actions required for the exception */
 	switch (old_state) {
@@ -2381,10 +2560,10 @@ static void handle_exception(struct fsg_dev *fsg)
 
 	case FSG_STATE_ABORT_BULK_OUT:
 		DBG(fsg, "FSG_STATE_ABORT_BULK_OUT\n");
-		spin_lock_irqsave(&fsg->lock, flags);
+		spin_lock_irq(&fsg->lock);
 		if (fsg->state == FSG_STATE_STATUS_PHASE)
 			fsg->state = FSG_STATE_IDLE;
-		spin_unlock_irqrestore(&fsg->lock, flags);
+		spin_unlock_irq(&fsg->lock);
 		break;
 
 	case FSG_STATE_RESET:
@@ -2403,10 +2582,14 @@ static void handle_exception(struct fsg_dev *fsg)
 
 	case FSG_STATE_EXIT:
 	case FSG_STATE_TERMINATED:
+		if (new_config)  {
+			fsg->new_config = 0;
+			do_set_interface(fsg, -1);
+		}
 		do_set_config(fsg, 0);			/* Free resources */
-		spin_lock_irqsave(&fsg->lock, flags);
+		spin_lock_irq(&fsg->lock);
 		fsg->state = FSG_STATE_TERMINATED;	/* Stop the thread */
-		spin_unlock_irqrestore(&fsg->lock, flags);
+		spin_unlock_irq(&fsg->lock);
 		break;
 	}
 }
@@ -2417,7 +2600,6 @@ static void handle_exception(struct fsg_dev *fsg)
 static int fsg_main_thread(void *fsg_)
 {
 	struct fsg_dev		*fsg = fsg_;
-	unsigned long		flags;
 
 	/* Allow the thread to be killed by a signal, but set the signal mask
 	 * to block everything but INT, TERM, KILL, and USR1. */
@@ -2449,31 +2631,31 @@ static int fsg_main_thread(void *fsg_)
 		if (get_next_command(fsg))
 			continue;
 
-		spin_lock_irqsave(&fsg->lock, flags);
+		spin_lock_irq(&fsg->lock);
 		if (!exception_in_progress(fsg))
 			fsg->state = FSG_STATE_DATA_PHASE;
-		spin_unlock_irqrestore(&fsg->lock, flags);
+		spin_unlock_irq(&fsg->lock);
 
 		if (do_scsi_command(fsg) || finish_reply(fsg))
 			continue;
 
-		spin_lock_irqsave(&fsg->lock, flags);
+		spin_lock_irq(&fsg->lock);
 		if (!exception_in_progress(fsg))
 			fsg->state = FSG_STATE_STATUS_PHASE;
-		spin_unlock_irqrestore(&fsg->lock, flags);
+		spin_unlock_irq(&fsg->lock);
 
 		if (send_status(fsg))
 			continue;
 
-		spin_lock_irqsave(&fsg->lock, flags);
+		spin_lock_irq(&fsg->lock);
 		if (!exception_in_progress(fsg))
 			fsg->state = FSG_STATE_IDLE;
-		spin_unlock_irqrestore(&fsg->lock, flags);
-	}
+		spin_unlock_irq(&fsg->lock);
+		}
 
-	spin_lock_irqsave(&fsg->lock, flags);
+	spin_lock_irq(&fsg->lock);
 	fsg->thread_task = NULL;
-	spin_unlock_irqrestore(&fsg->lock, flags);
+	spin_unlock_irq(&fsg->lock);
 
 	/* In case we are exiting because of a signal, unregister the
 	 * gadget driver and close the backing file. */
@@ -2499,6 +2681,9 @@ static int open_backing_file(struct fsg_dev *fsg, struct lun *curlun,
 	struct inode			*inode = NULL;
 	loff_t				size;
 	loff_t				num_sectors;
+#ifdef CONFIG_USB_MOT_ANDROID
+	loff_t				min_sectors;
+#endif
 
 	/* R/W if we can, R/O if we must */
 	ro = curlun->ro;
@@ -2543,7 +2728,22 @@ static int open_backing_file(struct fsg_dev *fsg, struct lun *curlun,
 		goto out;
 	}
 	num_sectors = size >> 9;	/* File size in 512-byte sectors */
+#ifdef CONFIG_USB_MOT_ANDROID
+	min_sectors = 1;
+	if (curlun->cdrom) {
+		num_sectors &= ~3;      /* Reduce to a multiple of 2048 */
+		min_sectors = 300 * 4;  /* Smallest track is 300 frames */
+		if (num_sectors >= 256 * 60 * 75 * 4) {
+			num_sectors = (256 * 60 * 75 - 1) * 4;
+			LINFO(curlun, "file too big: %s\n", filename);
+			LINFO(curlun, "using only first %d blocks\n",
+						(int) num_sectors);
+		}
+	}
+	if (num_sectors < min_sectors) {
+#else
 	if (num_sectors == 0) {
+#endif
 		LINFO(curlun, "file too small: %s\n", filename);
 		rc = -ETOOSMALL;
 		goto out;
@@ -2553,7 +2753,6 @@ static int open_backing_file(struct fsg_dev *fsg, struct lun *curlun,
 	curlun->ro = ro;
 	curlun->filp = filp;
 	curlun->file_length = size;
-	curlun->unflushed_bytes = 0;
 	curlun->num_sectors = num_sectors;
 	LDBG(curlun, "open backing file: %s size: %lld num_sectors: %lld\n",
 			filename, size, num_sectors);
@@ -2742,6 +2941,19 @@ fsg_function_unbind(struct usb_configuration *c, struct usb_function *f)
 		complete(&fsg->thread_notifier);
 	}
 
+	/* Deallocate the requests */
+	for (i = 0; i < NUM_BUFFERS; ++i) {
+		struct fsg_buffhd *bh = &fsg->buffhds[i];
+		if (bh->inreq) {
+			usb_ep_free_request(fsg->bulk_in, bh->inreq);
+			bh->inreq = NULL;
+		}
+		if (bh->outreq) {
+			usb_ep_free_request(fsg->bulk_out, bh->outreq);
+			bh->outreq = NULL;
+		}
+	}
+
 	/* Free the data buffers */
 	for (i = 0; i < NUM_BUFFERS; ++i)
 		kfree(fsg->buffhds[i].buf);
@@ -2787,6 +2999,14 @@ fsg_function_bind(struct usb_configuration *c, struct usb_function *f)
 	for (i = 0; i < fsg->nluns; ++i) {
 		curlun = &fsg->luns[i];
 		curlun->ro = 0;
+		curlun->cdrom = 0;
+#ifdef CONFIG_USB_MOT_ANDROID
+		/* LUN1 when available is always CD-ROM */
+		if (i == 1) {
+			curlun->ro = 1;
+			curlun->cdrom = 1;
+		}
+#endif
 		curlun->dev.release = lun_release;
 		/* use "usb_mass_storage" platform device as parent if available */
 		if (fsg->pdev)
@@ -2855,6 +3075,23 @@ fsg_function_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 	fsg->buffhds[NUM_BUFFERS - 1].next = &fsg->buffhds[0];
 
+	/* Allocate the requests */
+	for (i = 0; i < NUM_BUFFERS; ++i) {
+		struct fsg_buffhd       *bh = &fsg->buffhds[i];
+
+		rc = alloc_request(fsg, fsg->bulk_in, &bh->inreq);
+		if (rc != 0)
+			goto out;
+		rc = alloc_request(fsg, fsg->bulk_out, &bh->outreq);
+		if (rc != 0)
+			goto out;
+		bh->inreq->buf = bh->outreq->buf = bh->buf;
+		bh->inreq->context = bh->outreq->context = bh;
+		bh->inreq->complete = bulk_in_complete;
+		bh->outreq->complete = bulk_out_complete;
+	}
+
+
 	fsg->thread_task = kthread_create(fsg_main_thread, fsg,
 			shortname);
 	if (IS_ERR(fsg->thread_task)) {
@@ -2906,7 +3143,20 @@ static int fsg_function_set_alt(struct usb_function *f,
 	struct fsg_dev	*fsg = func_to_dev(f);
 	DBG(fsg, "fsg_function_set_alt intf: %d alt: %d\n", intf, alt);
 	fsg->new_config = 1;
+	do_set_interface(fsg, 0);
 	raise_exception(fsg, FSG_STATE_CONFIG_CHANGE);
+#ifdef CONFIG_USB_MOT_ANDROID
+	if (fsg->nluns == 1) {
+		if (cdrom_enable) {
+			fsg->luns[0].cdrom = 1;
+			fsg->luns[0].ro = 1;
+		} else {
+			fsg->luns[0].cdrom = 0;
+			fsg->luns[0].ro = 0;
+		}
+	}
+	usb_interface_enum_cb(CDROM_TYPE_FLAG|MSC_TYPE_FLAG);
+#endif
 	return 0;
 }
 
@@ -2914,6 +3164,8 @@ static void fsg_function_disable(struct usb_function *f)
 {
 	struct fsg_dev	*fsg = func_to_dev(f);
 	DBG(fsg, "fsg_function_disable\n");
+	if (fsg->new_config)
+		do_set_interface(fsg, -1);
 	fsg->new_config = 0;
 	raise_exception(fsg, FSG_STATE_CONFIG_CHANGE);
 }
@@ -2950,13 +3202,23 @@ int mass_storage_bind_config(struct usb_configuration *c)
 {
 	int		rc;
 	struct fsg_dev	*fsg;
+#ifdef CONFIG_USB_MOT_ANDROID
+	int status;
+#endif
 
-	printk(KERN_INFO "mass_storage_bind_config\n");
+	printk(KERN_INFO "Gadget Usb: mass_storage_bind_config\n");
 	rc = fsg_alloc();
 	if (rc)
 		return rc;
 	fsg = the_fsg;
 
+#ifdef CONFIG_USB_MOT_ANDROID
+	status = usb_string_id(c->cdev);
+	if (status >= 0) {
+		usbmsc_string_defs[STRING_INTERFACE].id = status;
+		intf_desc.iInterface = status;
+	}
+#endif
 	spin_lock_init(&fsg->lock);
 	init_rwsem(&fsg->filesem);
 	kref_init(&fsg->ref);
@@ -2985,6 +3247,10 @@ int mass_storage_bind_config(struct usb_configuration *c)
 	fsg->function.setup = fsg_function_setup;
 	fsg->function.set_alt = fsg_function_set_alt;
 	fsg->function.disable = fsg_function_disable;
+
+#ifdef CONFIG_USB_MOT_ANDROID
+	fsg->function.strings = usbmsc_strings;
+#endif
 
 	rc = usb_add_function(c, &fsg->function);
 	if (rc != 0)

@@ -939,9 +939,9 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE  hCmdCookie,
 	{
 		return IMG_FALSE;
 	}
-	
+
 	psDevInfo = (OMAPLFB_DEVINFO*)psFlipCmd->hExtDevice;
-	
+
 	psBuffer = (OMAPLFB_BUFFER*)psFlipCmd->hExtBuffer;
 	psSwapChain = (OMAPLFB_SWAPCHAIN*) psFlipCmd->hExtSwapChain;
 
@@ -953,20 +953,10 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE  hCmdCookie,
 
 	mutex_lock(&psDevInfo->active_list_lock);
 
-	if (!list_empty(&psBuffer->list)) {
-		pr_warning("omaplfb: this buffer's already on the list\n");
-		psSwapChain->psPVRJTable->pfnPVRSRVCmdComplete(hCmdCookie, IMG_TRUE);
-	} else {
-		if (list_empty(&psDevInfo->active_list)) {
-			OMAPLFBFlip(psSwapChain,
-				    (unsigned long)psBuffer->sSysAddr.uiAddr);
-			psSwapChain->psPVRJTable->pfnPVRSRVCmdComplete(hCmdCookie, IMG_TRUE);
-		}
-		psBuffer->hCmdCookie = hCmdCookie;
+	psBuffer->hCmdCookie = hCmdCookie;
 
-		list_add_tail(&psBuffer->list, &psDevInfo->active_list);
-		queue_work(psDevInfo->workq, &psDevInfo->active_work);
-	}
+	list_add_tail(&psBuffer->list, &psDevInfo->active_list);
+	queue_work(psDevInfo->workq, &psDevInfo->active_work);
 
 	mutex_unlock(&psDevInfo->active_list_lock);
 
@@ -980,30 +970,20 @@ static void active_worker(struct work_struct *work)
 	OMAPLFB_SWAPCHAIN *psSwapChain = psDevInfo->psSwapChain;
 	OMAPLFB_BUFFER *psBuffer;
 
-	OMAPLFBSync();
-
 	mutex_lock(&psDevInfo->active_list_lock);
-	if (list_empty(&psDevInfo->active_list)) {
-		pr_warning("omaplfb: syncing with no active buffer\n");
-		mutex_unlock(&psDevInfo->active_list_lock);
-		return;
-	}
 
-	psBuffer = list_first_entry(&psDevInfo->active_list,
-				    OMAPLFB_BUFFER, list);
-
-	list_del_init(&psBuffer->list);
-
-	if (!list_empty(&psDevInfo->active_list)) {
+	while (!list_empty(&psDevInfo->active_list)) {
 		psBuffer = list_first_entry(&psDevInfo->active_list,
 					    OMAPLFB_BUFFER, list);
+		mutex_unlock(&psDevInfo->active_list_lock);
 		OMAPLFBFlip(psSwapChain,
 			    (unsigned long)psBuffer->sSysAddr.uiAddr);
 
 		psSwapChain->psPVRJTable->
 			pfnPVRSRVCmdComplete(psBuffer->hCmdCookie, IMG_TRUE);
 
-		queue_work(psDevInfo->workq, &psDevInfo->active_work);
+		list_del_init(&psBuffer->list);
+		mutex_lock(&psDevInfo->active_list_lock);
 	}
 	mutex_unlock(&psDevInfo->active_list_lock);
 }
@@ -1366,7 +1346,7 @@ void OMAPLFBDriverSuspend(void)
 	}
 	psDevInfo->bDeviceSuspended = OMAP_TRUE;
 
-	
+
 	SetFlushStateInternalNoLock(psDevInfo, OMAP_TRUE);
 
 ExitUnlock:

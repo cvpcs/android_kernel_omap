@@ -38,7 +38,15 @@ extern "C" {
 
 #define DRIVERNAME_MAXLENGTH	(100)
 
-
+typedef enum _PVRSRV_MEMTYPE_
+{
+	PVRSRV_MEMTYPE_UNKNOWN		= 0,
+	PVRSRV_MEMTYPE_DEVICE		= 1,
+	PVRSRV_MEMTYPE_DEVICECLASS	= 2,
+	PVRSRV_MEMTYPE_WRAPPED		= 3,
+	PVRSRV_MEMTYPE_MAPPED		= 4,
+}
+PVRSRV_MEMTYPE;
 
 typedef struct _PVRSRV_KERNEL_MEM_INFO_
 {
@@ -67,7 +75,7 @@ typedef struct _PVRSRV_KERNEL_MEM_INFO_
 	IMG_BOOL				bPendingFree;
 
 
-	#if defined(ANDROID)
+	#if defined(SUPPORT_MEMINFO_IDS)
 	#if !defined(USE_CODE)
 	
 	IMG_UINT64				ui64Stamp;
@@ -79,6 +87,8 @@ typedef struct _PVRSRV_KERNEL_MEM_INFO_
 
 	
 	struct _PVRSRV_KERNEL_SYNC_INFO_	*psKernelSyncInfo;
+
+	PVRSRV_MEMTYPE			memType;
 
 } PVRSRV_KERNEL_MEM_INFO;
 
@@ -100,6 +110,10 @@ typedef struct _PVRSRV_KERNEL_SYNC_INFO_
 	
 	IMG_HANDLE				hResItem;
 	
+        
+        
+        IMG_UINT32              ui32RefCount;
+
 } PVRSRV_KERNEL_SYNC_INFO;
 
 typedef struct _PVRSRV_DEVICE_SYNC_OBJECT_

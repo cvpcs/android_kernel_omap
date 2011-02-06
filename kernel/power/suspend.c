@@ -15,6 +15,8 @@
 #include <linux/console.h>
 #include <linux/cpu.h>
 #include <linux/syscalls.h>
+#include <linux/quickwakeup.h>
+#include <linux/wakelock.h>
 
 #include "power.h"
 
@@ -125,7 +127,7 @@ void __attribute__ ((weak)) arch_suspend_enable_irqs(void)
  *
  *	This function should be called after devices have been suspended.
  */
-static int suspend_enter(suspend_state_t state)
+static int _suspend_enter(suspend_state_t state)
 {
 	int error;
 
@@ -181,6 +183,21 @@ static int suspend_enter(suspend_state_t state)
 	if (suspend_ops->finish)
 		suspend_ops->finish();
 
+	return error;
+}
+
+static int suspend_enter(suspend_state_t state)
+{
+	int error = 0;
+	error = _suspend_enter(state);
+
+#ifdef CONFIG_QUICK_WAKEUP
+	while (!error && !quickwakeup_execute()) {
+		if (has_wake_lock(WAKE_LOCK_SUSPEND))
+			break;
+		error = _suspend_enter(state);
+	}
+#endif
 	return error;
 }
 

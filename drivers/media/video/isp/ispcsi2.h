@@ -177,6 +177,11 @@ struct isp_csi2_cfg_update {
 	struct isp_csi2_ctrl_cfg_update ctrl;
 };
 
+#if defined(CONFIG_VIDEO_MIPI_DLI_TEST)
+/*Counters for MIPI DLI.*/
+extern unsigned long ecc_counter;
+#endif
+
 int isp_csi2_complexio_lanes_config(struct isp_csi2_lanes_cfg *reqcfg);
 int isp_csi2_complexio_lanes_update(bool force_update);
 int isp_csi2_complexio_lanes_count(int cnt);
@@ -194,6 +199,7 @@ int isp_csi2_ctrl_config_if_enable(bool if_enable);
 int isp_csi2_ctrl_config_vp_out_ctrl(u8 vp_out_ctrl);
 int isp_csi2_ctrl_update(bool force_update);
 int isp_csi2_ctrl_get(void);
+int isp_csi2_ctrl_phy_if_enable(u8 enable);
 int isp_csi2_ctx_config_virtual_id(u8 ctxnum, u8 virtual_id);
 int isp_csi2_ctx_config_frame_count(u8 ctxnum, u8 frame_count);
 int isp_csi2_ctx_config_format(u8 ctxnum, u32 pixformat);

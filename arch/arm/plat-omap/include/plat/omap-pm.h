@@ -31,6 +31,9 @@ struct omap_opp {
 	unsigned long rate;
 	u8 opp_id;
 	u16 vsel;
+	u16 sr_adjust_vsel;
+	u32 sr_nval;
+	u32 sr_err;
 };
 
 extern struct omap_opp *mpu_opps;
@@ -91,6 +94,15 @@ void omap_pm_if_exit(void);
  */
 
 
+/**
+ * MPU wakeup latency defines used by omap_pm_set_max_mpu_wakeup_lat function
+ * MPU_LATENCY_C1, CORE is always active with this value
+ * MPU_LATENCY_C2, MPU and CORE can't hit retention with this value
+ * MPU_LATENCY_C3, CORE can't hit retention with this value
+ */
+#define MPU_LATENCY_C1          15
+#define MPU_LATENCY_C2          100
+#define MPU_LATENCY_C3          1000
 /**
  * omap_pm_set_max_mpu_wakeup_lat - set the maximum MPU wakeup latency
  * @dev: struct device * requesting the constraint

@@ -1569,4 +1569,11 @@ config SERIAL_BCM63XX_CONSOLE
 	  If you have enabled the serial port on the bcm63xx CPU
 	  you can make it the console by answering Y to this option.
 
+config SERIAL_OMAP3430_HW_FLOW_CONTROL
+	bool "Support OMAP3430 uart HW flow control"
+	default n
+	help
+	  This option make the application have a chance to enable the uart
+	  working in the hardware flow control mode.
+
 endmenu

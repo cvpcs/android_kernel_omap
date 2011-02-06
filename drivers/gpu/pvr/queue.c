@@ -407,6 +407,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyCommandQueueKM(PVRSRV_QUEUE_INFO *psQueue
 					sizeof(PVRSRV_QUEUE_INFO),
 					psQueueInfo,
 					psQueueInfo->hMemBlock[0]);
+		 
 		psQueueInfo = IMG_NULL; 
 	}
 	else
@@ -426,6 +427,7 @@ PVRSRV_ERROR IMG_CALLCONV PVRSRVDestroyCommandQueueKM(PVRSRV_QUEUE_INFO *psQueue
 							sizeof(PVRSRV_QUEUE_INFO),
 							psQueueInfo,
 							psQueueInfo->hMemBlock[0]);
+				 
 				psQueueInfo = IMG_NULL; 
 				break;
 			}
@@ -875,7 +877,33 @@ PVRSRV_ERROR PVRSRVProcessQueues(IMG_UINT32	ui32CallerID,
 	return PVRSRV_OK;
 }
 
+#if defined(SUPPORT_CUSTOM_SWAP_OPERATIONS)
+IMG_INTERNAL
+IMG_VOID PVRSRVFreeCommandCompletePacketKM(IMG_HANDLE	hCmdCookie,
+										   IMG_BOOL		bScheduleMISR)
+{
+	COMMAND_COMPLETE_DATA	*psCmdCompleteData = (COMMAND_COMPLETE_DATA *)hCmdCookie;
+	SYS_DATA				*psSysData;
 
+	SysAcquireData(&psSysData);
+
+	
+	psCmdCompleteData->bInUse = IMG_FALSE;
+
+	
+	PVRSRVCommandCompleteCallbacks();
+
+#if defined(SYS_USING_INTERRUPTS)
+	if(bScheduleMISR)
+	{
+		OSScheduleMISR(psSysData);
+	}
+#else
+	PVR_UNREFERENCED_PARAMETER(bScheduleMISR);
+#endif 
+}
+
+#endif 
 IMG_EXPORT
 IMG_VOID PVRSRVCommandCompleteKM(IMG_HANDLE	hCmdCookie,
 								 IMG_BOOL	bScheduleMISR)

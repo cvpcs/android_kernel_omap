@@ -27,15 +27,19 @@
 #ifndef __ENV_PERPROC_H__
 #define __ENV_PERPROC_H__
 
-#include "linux/list.h"
-#include "linux/proc_fs.h"
+#include <linux/list.h>
+#include <linux/proc_fs.h>
 
-#include "img_types.h"
+#include "services.h"
+#include "handle.h"
 
 typedef struct _PVRSRV_ENV_PER_PROCESS_DATA_
 {
 	IMG_HANDLE hBlockAlloc;
 	struct proc_dir_entry *psProcDir;
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	struct list_head sDRMAuthListHead;
+#endif
 } PVRSRV_ENV_PER_PROCESS_DATA;
 
 IMG_VOID RemovePerProcessProcDir(PVRSRV_ENV_PER_PROCESS_DATA *psEnvPerProc);

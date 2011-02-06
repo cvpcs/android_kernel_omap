@@ -25,6 +25,9 @@ struct plat_serialomap_port {
 	void __iomem	*membase;
 	unsigned char	regshift;
 	int		irq;
+#ifdef CONFIG_SERIAL_OMAP3430_HW_FLOW_CONTROL
+	unsigned char   ctsrts;     /* bit7: cts, bit6: rts */
+#endif
 	int		wake_gpio_strobe;
 };
 

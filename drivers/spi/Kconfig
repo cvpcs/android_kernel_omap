@@ -164,6 +164,12 @@ config SPI_OMAP24XX
 	  SPI master controller for OMAP24xx/OMAP34xx Multichannel SPI
 	  (McSPI) modules.
 
+config SPI_SW_CS
+	boolean "Single channel Master Mode"
+	depends on SPI_OMAP24XX
+	help
+	  This is set to enable Software control of the Chip select.
+
 config SPI_ORION
 	tristate "Orion SPI master (EXPERIMENTAL)"
 	depends on PLAT_ORION && EXPERIMENTAL

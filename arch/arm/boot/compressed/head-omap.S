@@ -12,7 +12,7 @@
 
 /* this code should preserve r7, r8, and r9. */
 __OMAP_start:
-#if defined(CONFIG_ARM_ERRATA_430973) && defined(CONFIG_ARCH_OMAP3_HS)
+#if defined(CONFIG_MACH_OMAP_3430_ES3_ARM_ERRATA)
 
 		/* enable access to L2 Cache AuxCR */
 enable_btb_flush:

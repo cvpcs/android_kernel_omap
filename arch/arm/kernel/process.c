@@ -344,7 +344,11 @@ void show_regs(struct pt_regs * regs)
 	printk("\n");
 	printk("Pid: %d, comm: %20s\n", task_pid_nr(current), current->comm);
 	__show_regs(regs);
+#ifdef CONFIG_ARM_UNWIND
+	dump_stack();
+#else
 	__backtrace();
+#endif
 }
 
 /*

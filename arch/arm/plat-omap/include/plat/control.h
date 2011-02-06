@@ -201,14 +201,6 @@
 #define OMAP343X_CONTROL_WKUP_DEBOBS3 (OMAP343X_CONTROL_GENERAL_WKUP + 0x014)
 #define OMAP343X_CONTROL_WKUP_DEBOBS4 (OMAP343X_CONTROL_GENERAL_WKUP + 0x018)
 
-/* 36xx-only GENERAL_WKUP register offsets */
-#define OMAP36XX_CONTROL_PROG_IO_WKUP1 (OMAP343X_CONTROL_GENERAL_WKUP + 0x020)
-
-/* 36xx-only RTA */
-#define OMAP36XX_CONTROL_MEM_RTA_CTRL	0x40C
-#define OMAP36XX_RTA_ENABLE		0x1
-#define OMAP36XX_RTA_DISABLE		0x0
-
 /* 34xx D2D idle-related pins, handled by PM core */
 #define OMAP3_PADCONF_SAD2D_MSTANDBY   0x250
 #define OMAP3_PADCONF_SAD2D_IDLEACK    0x254
@@ -268,15 +260,7 @@
 #define OMAP2_PBIASLITEVMODE0		(1 << 0)
 
 /* CONTROL_PROG_IO1 bits */
-#define OMAP3630_PRG_I2C2_PULLUPRESX    (1 << 0)
-#define OMAP3630_PRG_I2C1_PULLUPRESX    (1 << 19)
 #define OMAP3630_PRG_SDMMC1_SPEEDCTRL	(1 << 20)
-
-/* CONTROL_PROG_IO2 bits on omap3630 */
-#define OMAP3630_PRG_I2C3_PULLUPRESX    (1 << 7)
-
-/* CONTROL_PROG_IO_WKUP1 bits on omap3630 */
-#define OMAP3630_PRG_SR_PULLUPRESX    (1 << 5)
 
 /* CONTROL_IVA2_BOOTMOD bits */
 #define OMAP3_IVA2_BOOTMOD_SHIFT	0
@@ -290,6 +274,18 @@
 #define OMAP343X_SCRATCHPAD_ROM		(OMAP343X_CTRL_BASE + 0x860)
 #define OMAP343X_SCRATCHPAD		(OMAP343X_CTRL_BASE + 0x910)
 #define OMAP343X_SCRATCHPAD_ROM_OFFSET	0x19C
+
+/* OMAP36XX CONTROL FUSE */
+#define OMAP36XX_CONTROL_FUSE_OPP1_VDD1        (OMAP2_CONTROL_GENERAL + 0x0114)
+#define OMAP36XX_CONTROL_FUSE_OPP2_VDD1        (OMAP2_CONTROL_GENERAL + 0x0118)
+#define OMAP36XX_CONTROL_FUSE_OPP3_VDD1        (OMAP2_CONTROL_GENERAL + 0x0120)
+#define OMAP36XX_CONTROL_FUSE_OPP4_VDD1        (OMAP2_CONTROL_GENERAL + 0x0110)
+
+#define OMAP36XX_CONTROL_FUSE_OPP1_VDD2        (OMAP2_CONTROL_GENERAL + 0x0128)
+#define OMAP36XX_CONTROL_FUSE_OPP2_VDD2        (OMAP2_CONTROL_GENERAL + 0x012c)
+
+/* OMAP36XX MEM RTA CONTROL */
+#define OMAP36XX_CONTROL_MEM_RTA_CTRL        	(OMAP2_CONTROL_GENERAL + 0x019c)
 
 /*
  * CONTROL OMAP STATUS register to identify OMAP3 features
@@ -339,7 +335,6 @@ extern void omap_ctrl_writel(u32 val, u16 offset);
 extern void omap3_save_scratchpad_contents(void);
 extern void omap3_clear_scratchpad_contents(void);
 extern u32 *get_restore_pointer(void);
-extern u32 *get_omap3630_restore_pointer(void);
 extern u32 *get_es3_restore_pointer(void);
 extern u32 omap3_arm_context[128];
 extern void omap3_control_save_context(void);

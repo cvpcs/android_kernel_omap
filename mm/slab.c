@@ -1802,6 +1802,7 @@ static void check_poison_obj(struct kmem_cache *cachep, void *objp)
 			/* Mismatch ! */
 			/* Print header */
 			if (lines == 0) {
+				printk(KERN_ERR "PC is at %s\n", __func__);
 				printk(KERN_ERR
 					"Slab corruption: %s start=%p, len=%d\n",
 					cachep->name, realobj, size);
@@ -1842,6 +1843,11 @@ static void check_poison_obj(struct kmem_cache *cachep, void *objp)
 			       realobj, size);
 			print_objinfo(cachep, objp, 2);
 		}
+
+		printk(KERN_ERR "Backtrace: \n");
+		dump_stack();
+		printk(KERN_ERR "Code: \n");
+		panic("slab corruption");
 	}
 }
 #endif
@@ -2209,8 +2215,8 @@ kmem_cache_create (const char *name, size_t size, size_t align,
 	if (ralign < align) {
 		ralign = align;
 	}
-	/* disable debug if necessary */
-	if (ralign > __alignof__(unsigned long long))
+	/* disable debug if not aligning with REDZONE_ALIGN */
+	if (ralign & (__alignof__(unsigned long long) - 1))
 		flags &= ~(SLAB_RED_ZONE | SLAB_STORE_USER);
 	/*
 	 * 4) Store it.
@@ -2236,8 +2242,8 @@ kmem_cache_create (const char *name, size_t size, size_t align,
 	 */
 	if (flags & SLAB_RED_ZONE) {
 		/* add space for red zone words */
-		cachep->obj_offset += sizeof(unsigned long long);
-		size += 2 * sizeof(unsigned long long);
+		cachep->obj_offset += align;
+		size += align + sizeof(unsigned long long);
 	}
 	if (flags & SLAB_STORE_USER) {
 		/* user store requires one word storage behind the end of
@@ -2832,6 +2838,7 @@ static inline void verify_redzone_free(struct kmem_cache *cache, void *obj)
 	if (redzone1 == RED_ACTIVE && redzone2 == RED_ACTIVE)
 		return;
 
+	printk(KERN_ERR "PC is at %s\n", __func__);
 	if (redzone1 == RED_INACTIVE && redzone2 == RED_INACTIVE)
 		slab_error(cache, "double free detected");
 	else
@@ -2839,6 +2846,11 @@ static inline void verify_redzone_free(struct kmem_cache *cache, void *obj)
 
 	printk(KERN_ERR "%p: redzone 1:0x%llx, redzone 2:0x%llx.\n",
 			obj, redzone1, redzone2);
+
+	printk(KERN_ERR "Backtrace: \n");
+	dump_stack();
+	printk(KERN_ERR "Code: \n");
+	panic("slab red zone");
 }
 
 static void *cache_free_debugcheck(struct kmem_cache *cachep, void *objp,
@@ -4503,3 +4515,43 @@ size_t ksize(const void *objp)
 	return obj_size(virt_to_cache(objp));
 }
 EXPORT_SYMBOL(ksize);
+
+#ifdef CONFIG_MUDFLAP
+void slab_check_write(void *ptr, unsigned int sz, const char *location)
+{
+	struct page *page;
+	struct kmem_cache *cache;
+	struct slab *slab;
+	char *realobj;
+	void *obj;
+	unsigned long objnr, size;
+
+	page = virt_to_head_page(ptr);
+	if (!PageSlab(page))
+		return;
+
+	cache = page_get_cache(page);
+	slab = page_get_slab(page);
+	objnr = (unsigned)(ptr - slab->s_mem) / cache->buffer_size;
+	obj = index_to_obj(cache, slab, objnr);
+	realobj = obj + obj_offset(cache);
+	size = obj_size(cache);
+
+	if (slab_bufctl(slab)[objnr] != BUFCTL_FREE)
+		return;
+
+	printk(KERN_ERR "ptr: %p, sz: %d, location: %s\n",
+			ptr, sz, location);
+	printk(KERN_ERR "write to freed object, size %ld\n",
+			size);
+	if (cache->flags & SLAB_STORE_USER) {
+		printk(KERN_ERR "Last user: [<%p>]",
+				*dbg_userword(cache, obj));
+		print_symbol("(%s)",
+				(unsigned long)*dbg_userword(cache, obj));
+		printk("\n");
+	}
+
+	dump_stack();
+}
+#endif

@@ -60,6 +60,11 @@ PVRSRV_ERROR OSPerProcessPrivateDataInit(IMG_HANDLE *phOsPrivateData)
 	
 	LinuxMMapPerProcessConnect(psEnvPerProc);
 
+#if defined(SUPPORT_DRI_DRM) && defined(PVR_SECURE_DRM_AUTH_EXPORT)
+	
+	INIT_LIST_HEAD(&psEnvPerProc->sDRMAuthListHead);
+#endif
+
 	return PVRSRV_OK;
 }
 

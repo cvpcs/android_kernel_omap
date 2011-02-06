@@ -30,7 +30,7 @@
 #include <linux/uaccess.h>
 #include <media/v4l2-dev.h>
 #include <asm/cacheflush.h>
-#include <mach/iovmm.h>
+#include <plat/iovmm.h>
 
 #include "isp.h"
 #include "ispmmu.h"
@@ -371,8 +371,8 @@ int rsz_start(struct rsz_fh *fh)
 		goto err_einval;
 	}
 
-	/* Make sure we don't wait for any HS_VS interrupts */
-	isp_set_hs_vs(0);
+	/* Make sure we don't wait for any yuv frames */
+	isp_set_wait_yuv(0);
 mult:
 	device_config->compl_isr.done = 0;
 
@@ -1817,7 +1817,7 @@ int rsz_begin(u32 input_buffer_index, int output_buffer_index,
 	}
 
 	/* All settings are done.Enable the resizer */
-	isp_set_hs_vs(0);
+	isp_set_wait_yuv(0);
 
 mult:
 	device_config->compl_isr.done = 0;

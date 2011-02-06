@@ -285,6 +285,8 @@ static void irq_work_func(struct work_struct *work)
 			en_ints[i] &= ~(1 << index);
 			/* find the event that occurred */
 			index += CPCAP_IRQ__START + (i * NUM_INTS_PER_REG);
+			if (index >= CPCAP_IRQ__NUM)
+				goto error;
 			event_handler = &data->event_handler[index];
 
 			if (event_handler->func)

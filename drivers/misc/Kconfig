@@ -293,6 +293,21 @@ config SENSORS_LIS331DLH
 	 Say yes here if you wish to include the STI Micro
 	 LIS331DLH accelerometer driver.
 
+config SENSORS_KXTF9
+	tristate "KXTF9 Accelerometer"
+	default n
+	depends on I2C
+	help
+	 Say yes here if you wish to include the Kionix
+	 KXTF9 accelerometer driver.
+
+config SENSORS_AIRC
+       tristate "Motorola AIRC"
+       default n
+       depends on I2C
+       help
+        Support for the AIRC driver
+
 config WL127X_RFKILL
 	tristate "Bluetooth power control driver for TI wl127x"
 	depends on RFKILL
@@ -318,12 +333,35 @@ config UID_STAT
 	bool "UID based statistics tracking exported to /proc/uid_stat"
 	default n
 
+config WL127X_RFKILL
+	tristate "Bluetooth power control driver for TI wl127x"
+	depends on RFKILL
+	default n
+	---help---
+	 Creates an rfkill entry in sysfs for power control of Bluetooth
+	 TI wl127x chips.
+
 config APANIC
 	bool "Android kernel panic diagnostics driver"
 	default n
 	---help---
 	 Driver which handles kernel panics and attempts to write
 	 critical debugging data to flash.
+
+config APANIC_MMC
+	bool "Android kernel panic diagnostics driver on mmc"
+	default n
+	---help---
+	 Driver which handles kernel panics and attempts to write
+	 critical debugging data through mmc.
+
+config APANIC_MMC_MEMDUMP
+	bool "Android memory dump driver on mmc"
+	depends on APANIC_MMC
+	default n
+	---help---
+	 Driver which handles kernel panics and attempts to write
+	 full memeory dump through mmc.
 
 config APANIC_PLABEL
 	string "Android panic dump flash partition label"
@@ -337,16 +375,34 @@ config VIB_OMAP_PWM
 	bool "OMAP PWM Vibrator"
 	default n
 
+config VIB_PWM
+        bool "PWM Vibrator"
+        default n
+
+config VIB_PWM_SWEEP
+	bool "PWM Vibrator Sweep signal"
+	depends on VIB_PWM
+	default n
+
 config WL127X_TEST
 	tristate "TI wl127x Bluetooth GPIO test driver for board-sholes"
-	depends on MACH_SHOLES && WL127X_RFKILL && BT
+	depends on (MACH_SHOLES || MACH_MAPPHONE) && WL127X_RFKILL && BT
 	default n
 	---help---
 	 Creates sysfs GPIO entries for testing TI wl127x BT on board-sholes.
+
+config SYSPANIC
+	tristate "SYSPANIC driver used to detect BP panics"
+	default n
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
 source "drivers/misc/ts27010mux/Kconfig"
+source "drivers/misc/modem_pm_driver/Kconfig
+source "drivers/misc/smc/Kconfig"
+source "drivers/misc/sec/Kconfig"
+source "drivers/misc/netmux/Kconfig"
+source "drivers/misc/netmux_linkdriver/Kconfig"
 
 endif # MISC_DEVICES

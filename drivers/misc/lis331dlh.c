@@ -104,6 +104,8 @@ struct lis331dlh_data {
  */
 struct lis331dlh_data *lis331dlh_misc_data;
 
+static struct notifier_block lis331dlh_pm_notifier;
+
 static int lis331dlh_i2c_read(struct lis331dlh_data *lis, u8 * buf, int len)
 {
 	int err;
@@ -669,6 +671,8 @@ static int lis331dlh_probe(struct i2c_client *client,
 
 	lis331dlh_device_power_off(lis);
 
+	register_pm_notifier(&lis331dlh_pm_notifier);
+
 	/* As default, do not report information */
 	atomic_set(&lis->enabled, 0);
 
@@ -760,7 +764,6 @@ static struct i2c_driver lis331dlh_driver = {
 static int __init lis331dlh_init(void)
 {
 	pr_info(KERN_INFO "LIS331DLH accelerometer driver\n");
-	register_pm_notifier(&lis331dlh_pm_notifier);
 	return i2c_add_driver(&lis331dlh_driver);
 }
 

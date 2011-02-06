@@ -72,6 +72,11 @@ void omap_pm_set_max_mpu_wakeup_lat(struct device *dev, long t)
 	}
 }
 
+/* l3 freq will be changed by WA for Errata i570 when hitting core retention.
+ * for those devices request latency of l3 freq, mpu latency is needed
+ * to not hit core renention.
+*/
+
 void omap_pm_set_min_bus_tput(struct device *dev, u8 agent_id, unsigned long r)
 {
 	if (!dev || (agent_id != OCP_INITIATOR_AGENT &&
@@ -84,10 +89,12 @@ void omap_pm_set_min_bus_tput(struct device *dev, u8 agent_id, unsigned long r)
 		pr_debug("OMAP PM: remove min bus tput constraint: "
 			 "dev %s for agent_id %d\n", dev_name(dev), agent_id);
 		resource_release("vdd2_opp", dev);
+		resource_release("mpu_latency", dev);
 	} else {
 		pr_debug("OMAP PM: add min bus tput constraint: "
 			 "dev %s for agent_id %d: rate %ld KiB\n",
 			 dev_name(dev), agent_id, r);
+		resource_request("mpu_latency", dev, 1000);
 		resource_request("vdd2_opp", dev, r);
 	}
 }
@@ -258,15 +265,19 @@ void omap_pm_cpu_set_freq(unsigned long f)
 
 void omap_pm_set_min_mpu_freq(struct device *dev, unsigned long f)
 {
-	if (f == 0) {
+	if (f < 0) {
 		WARN_ON(1);
 		return;
 	}
 
-	pr_debug("OMAP PM: CPUFreq requests CPU frequency to be set to %lu\n",
-		 f);
-
-	resource_request("mpu_freq", dev, f);
+	if (f == 0) {
+		pr_debug("OMAP PM: remove CPU frequency minimal request\n");
+		resource_release("mpu_freq", dev);
+	} else {
+		pr_debug("OMAP PM: add CPU frequency minimal request to %lu\n",
+			f);
+		resource_request("mpu_freq", dev, f);
+	}
 	return;
 }
 EXPORT_SYMBOL(omap_pm_set_min_mpu_freq);
@@ -338,9 +349,29 @@ void omap_pm_if_exit(void)
 u8 omap_pm_get_max_vdd1_opp()
 {
 	if (cpu_is_omap3630()) {
-		return VDD1_OPP2;
+		switch (omap_rev_id()) {
+		case OMAP_3630:
+		default:
+			return VDD1_OPP4;
+		case OMAP_3630_800:
+			return VDD1_OPP3;
+		case OMAP_3630_1000:
+			return VDD1_OPP4;
+		}
 	} else {
-		return VDD1_OPP7;
+		if (omap_rev() < OMAP3430_REV_ES3_1)
+			return VDD1_OPP5;
+		else {
+			switch (omap_rev_id()) {
+			case OMAP_3420:
+			case OMAP_3430:
+				return VDD1_OPP5;
+			case OMAP_3440:
+				return VDD1_OPP6;
+			default:
+				return VDD1_OPP5;
+			}
+		}
 	}
 }
 EXPORT_SYMBOL(omap_pm_get_max_vdd1_opp);

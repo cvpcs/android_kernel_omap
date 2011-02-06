@@ -110,6 +110,9 @@ static void report_key(struct gpio_kp *kp, int key_index, int out, int in)
 	unsigned short keycode = keyentry & MATRIX_KEY_MASK;
 	unsigned short dev = keyentry >> MATRIX_CODE_BITS;
 
+	if (mi->sw_fixup && !mi->sw_fixup(key_index))
+		return;
+
 	if (pressed != test_bit(keycode, kp->input_devs->dev[dev]->key)) {
 		if (keycode == KEY_RESERVED) {
 			if (mi->flags & GPIOKPF_PRINT_UNMAPPED_KEYS)
@@ -266,6 +269,17 @@ static int gpio_keypad_request_irqs(struct gpio_kp *kp)
 				"irq %d\n", mi->input_gpios[i], irq);
 			goto err_request_irq_failed;
 		}
+		if (mi->wakeup_ints) {
+			int j;
+			for (j = 0; j < mi->wakeup_ints; j++)
+				if (mi->wakeup_gpios[j] == mi->input_gpios[i])
+					break;
+			if (j == mi->wakeup_ints) {
+				disable_irq(irq);
+				continue;
+			}
+		}
+
 		err = set_irq_wake(irq, 1);
 		if (err) {
 			pr_err("gpiomatrix: set_irq_wake failed for input %d, "

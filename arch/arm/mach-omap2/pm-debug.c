@@ -34,6 +34,7 @@
 #include "prm.h"
 #include "cm.h"
 #include "pm.h"
+#include "smartreflex.h"
 #include "prm-regbits-34xx.h"
 
 int omap2_pm_debug;
@@ -609,6 +610,10 @@ static int __init pm_dbg_init(void)
 	(void) debugfs_create_file("wakeup_timer_seconds", S_IRUGO | S_IWUGO, d,
 				   &wakeup_timer_seconds, &pm_dbg_option_fops);
 
+	if (cpu_is_omap3630())
+		(void) debugfs_create_file("enable_abb_mode", S_IRUGO | S_IWUGO,
+				d, &enable_abb_mode, &pm_dbg_option_fops);
+
 	/* Only enable for >= ES2.1 . Going to 0V on anything under
 	 * ES2.1 will eventually cause a crash */
 	if (omap_rev() > OMAP3430_REV_ES2_0)
@@ -616,6 +621,8 @@ static int __init pm_dbg_init(void)
 					   S_IRUGO | S_IWUGO, d,
 					   &voltage_off_while_idle,
 					   &pm_dbg_option_fops);
+
+	(void)sr_debugfs_create_entries(d);
 
 	pm_dbg_init_done = 1;
 

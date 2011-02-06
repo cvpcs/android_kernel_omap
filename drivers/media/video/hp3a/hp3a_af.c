@@ -21,7 +21,8 @@
 #include <linux/interrupt.h>
 #include <linux/device.h>
 #include <linux/delay.h>
-#include <mach/oldisp_user.h>
+#include <linux/videodev2.h>
+#include <plat/isp_user.h>
 
 #include "hp3a.h"
 #include "hp3a_common.h"

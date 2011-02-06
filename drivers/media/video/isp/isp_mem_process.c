@@ -149,8 +149,6 @@ int isp_process_mem_data(struct isp_mem_data *data)
 	unsigned long  isp_addr_out = 0;
 	unsigned long  isp_addr_tmp = 0;
 	unsigned long timeout;
-
-	u32 isppreview_pcr;
 	struct isp_mem_resize_data resizer_param;
 	u16 cropadjust = 0;
 
@@ -189,6 +187,14 @@ int isp_process_mem_data(struct isp_mem_data *data)
 
 	isppreview_save_context();
 	ispresizer_save_context();
+	isppreview_free();
+	ispresizer_free();
+	isppreview_request();
+	ispresizer_request();
+
+	/* set data path before configuring modules. */
+	isppreview_update_datapath(PRV_RAW_MEM, PREVIEW_MEM);
+	ispresizer_config_datapath(RSZ_MEM_YUV, 0);
 
 	ret = isppreview_try_size(preview_param.input_width,
 		preview_param.input_height,
@@ -247,12 +253,6 @@ int isp_process_mem_data(struct isp_mem_data *data)
 		printk(KERN_ERR "ISP_PROC_ERR: Invalid isp tmp buffer address!\n");
 		goto exit_cleanup;
 	}
-	isppreview_pcr = isp_reg_readl(OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR);
-	isppreview_pcr |= ISPPRV_PCR_SOURCE;
-	isppreview_pcr |= ISPPRV_PCR_ONESHOT;
-	isppreview_pcr &= ~ISPPRV_PCR_RSZPORT;
-	isppreview_pcr |= ISPPRV_PCR_SDRPORT;
-	isp_reg_writel(isppreview_pcr, OMAP3_ISP_IOMEM_PREV, ISPPRV_PCR);
 
 	isppreview_config_inlineoffset(ppreview_user->input_width * 2);
 	isppreview_set_inaddr(isp_addr_in);
@@ -310,7 +310,9 @@ int isp_process_mem_data(struct isp_mem_data *data)
 	}
 
 	ispresizer_set_outaddr(isp_addr_out);
-	ispresizer_config_inlineoffset(resizer_param.input_width*2);
+	ispresizer_config_inlineoffset(
+		ALIGN_TO(resizer_param.input_width*2, 32));
+
 	if (isp_set_callback(CBK_PREV_DONE, prv_isr,
 			(void *) NULL, (void *)NULL) != 0) {
 		printk(KERN_ERR "ISP_PROC_ERR: Error setting PRV callback.\n");
@@ -326,22 +328,27 @@ int isp_process_mem_data(struct isp_mem_data *data)
 	isp_reg_writel(0xFFFFFFFF, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
 	isp_wfc.done = 0;
 
-	/* Start preview engine. */
+	/* start preview engine. */
 	isppreview_enable(1);
 
 	ret = wait_for_completion_timeout(&isp_wfc, msecs_to_jiffies(1000));
-
-	isppreview_enable(0);
-	ispresizer_enable(0);
-	isp_reg_writel(0xFFFFFFFF, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
-	isp_unset_callback(CBK_PREV_DONE);
-	isp_unset_callback(CBK_RESZ_DONE);
+	if (!ret) {
+		isppreview_enable(0);
+		ispresizer_enable(0);
+	}
 
 	timeout = jiffies + msecs_to_jiffies(50);
 	while (ispresizer_busy()) {
-		if (time_after(jiffies, timeout))
+		msleep(5);
+		if (time_after(jiffies, timeout)) {
+			printk(KERN_ERR "ISP_RESZ_ERR: Resizer still busy");
 			break;
+		}
 	}
+
+	isp_reg_writel(0xFFFFFFFF, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+	isp_unset_callback(CBK_PREV_DONE);
+	isp_unset_callback(CBK_RESZ_DONE);
 
 exit_cleanup:
 	isppreview_restore_context();
@@ -412,6 +419,11 @@ int isp_resize_mem_data(struct isp_mem_resize_data *data)
 	}
 
 	ispresizer_save_context();
+	ispresizer_free();
+	ispresizer_request();
+
+	/* set data path before configuring modules. */
+	ispresizer_config_datapath(RSZ_MEM_YUV, 0);
 
 	input_buffer_size = ALIGN_TO(presizer_user->input_width* \
 		presizer_user->input_height*2 , 0x100);
@@ -489,7 +501,8 @@ int isp_resize_mem_data(struct isp_mem_resize_data *data)
 	ispresizer_set_inaddr(isp_addr_in);
 	ispresizer_set_outaddr(isp_addr_out);
 	ispresizer_config_ycpos(0);
-	ispresizer_config_inlineoffset(presizer_user->input_width*2);
+	ispresizer_config_inlineoffset(
+		ALIGN_TO(presizer_user->input_width*2, 32));
 
 	isp_set_callback(CBK_RESZ_DONE, rsz_isr, (void *) NULL, (void *)NULL);
 	isp_reg_writel(0xFFFFFFFF, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
@@ -498,17 +511,21 @@ int isp_resize_mem_data(struct isp_mem_resize_data *data)
 	ispresizer_enable(1);
 
 	ret = wait_for_completion_timeout(&isp_wfc, msecs_to_jiffies(1000));
-
-	ispresizer_enable(0);
-	isp_reg_writel(0xFFFFFFFF, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
-	isp_unset_callback(CBK_RESZ_DONE);
-	ret = 0;
+	if (!ret)
+		ispresizer_enable(0);
 
 	timeout = jiffies + msecs_to_jiffies(50);
 	while (ispresizer_busy()) {
-		if (time_after(jiffies, timeout))
+		msleep(5);
+		if (time_after(jiffies, timeout)) {
+			printk(KERN_ERR "ISP_RESZ_ERR: Resizer still busy");
 			break;
+		}
 	}
+
+	isp_reg_writel(0xFFFFFFFF, OMAP3_ISP_IOMEM_MAIN, ISP_IRQ0STATUS);
+	isp_unset_callback(CBK_RESZ_DONE);
+	ret = 0;
 
 exit_cleanup:
 	ispresizer_restore_context();

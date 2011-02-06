@@ -234,6 +234,7 @@ struct hp3a_statistics {
 	u32 frame_id;
 	u32 exposure;
 	u16 gain;
+	u16 fps;
 	u16 raw_width;
 	u16 raw_height;
 	int hist_stat_index;

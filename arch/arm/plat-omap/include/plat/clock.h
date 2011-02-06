@@ -48,6 +48,7 @@ struct dpll_data {
 	u32			enable_mask;
 	unsigned int		rate_tolerance;
 	unsigned long		last_rounded_rate;
+	unsigned long           default_rate;
 	u16			last_rounded_m;
 	u8			last_rounded_n;
 	u8			min_divider;
@@ -64,6 +65,9 @@ struct dpll_data {
 	u8			auto_recal_bit;
 	u8			recal_en_bit;
 	u8			recal_st_bit;
+	u32			dco_sel_mask;
+	u32			sd_div_mask;
+	u8			jtype;
 #  endif
 };
 
@@ -88,9 +92,9 @@ struct clk {
 	__s8			usecount;
 #if defined(CONFIG_ARCH_OMAP2) || defined(CONFIG_ARCH_OMAP3) || \
 		defined(CONFIG_ARCH_OMAP4)
-	u8			fixed_div;
+	u8			fixed_div, clksel_shift;
 	void __iomem		*clksel_reg;
-	u32			clksel_mask;
+	u32			clksel_mask, clksel_mask2;
 	const struct clksel	*clksel;
 	struct dpll_data	*dpll_data;
 	const char		*clkdm_name;
@@ -147,7 +151,7 @@ extern const struct clkops clkops_null;
 #define DELAYED_APP		(1 << 9)	/* Delay application of clock */
 #define CONFIG_PARTICIPANT	(1 << 10)	/* Fundamental clock */
 #define ENABLE_ON_INIT		(1 << 11)	/* Enable upon framework init */
-#define INVERT_ENABLE           (1 << 12)       /* 0 enables, 1 disables */
+#define INVERT_ENABLE		(1 << 12)	/* 0 enables, 1 disables */
 /* bits 13-31 are currently free */
 
 /* Clksel_rate flags */
@@ -156,6 +160,8 @@ extern const struct clkops clkops_null;
 #define RATE_IN_243X		(1 << 2)
 #define RATE_IN_343X		(1 << 3)	/* rates common to all 343X */
 #define RATE_IN_3430ES2		(1 << 4)	/* 3430ES2 rates only */
+#define RATE_IN_363X		(1 << 5)	/* rates common to all 3630 */
+
 
 #define RATE_IN_24XX		(RATE_IN_242X | RATE_IN_243X)
 

@@ -20,6 +20,8 @@
 #include <linux/module.h>
 #include <linux/device.h>
 
+#include <plat/omap-pm.h>
+
 #include "../w1.h"
 #include "../w1_family.h"
 
@@ -283,8 +285,10 @@ static ssize_t w1_ds2502_read_eeprom(struct kobject *kobj,
 	unsigned char serial_number_index = 0;
 	static bool multiple_devices_found;
 	struct w1_ds2502_data *data = sl->family_data;
+	static struct device w1_dev_eeprom;
 
 	mutex_lock(&sl->master->mutex);
+	omap_pm_set_max_mpu_wakeup_lat(&w1_dev_eeprom, 15);
 
 	data->status = -EINVAL;
 	memset(data->unique_id, 0xFF, UID_SIZE);
@@ -320,6 +324,7 @@ static ssize_t w1_ds2502_read_eeprom(struct kobject *kobj,
 		}
 	}
 
+	omap_pm_set_max_mpu_wakeup_lat(&w1_dev_eeprom, -1);
 	mutex_unlock(&sl->master->mutex);
 
 	return (data->status == 0) ? count : 0;

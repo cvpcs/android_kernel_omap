@@ -150,6 +150,10 @@ static void configure_channel(struct dma_channel *channel,
 		| (musb_channel->transmit
 				? (1 << MUSB_HSDMA_TRANSMIT_SHIFT)
 				: 0);
+	if (musb_channel->transmit)
+		controller->tx_active |= (1 << bchannel);
+	else
+		controller->rx_active |= (1 << bchannel);
 
 	/* address/count */
 	musb_write_hsdma_addr(mbase, bchannel, dma_addr);
@@ -166,6 +170,9 @@ static int dma_channel_program(struct dma_channel *channel,
 				dma_addr_t dma_addr, u32 len)
 {
 	struct musb_dma_channel *musb_channel = channel->private_data;
+	struct musb_dma_controller *controller = musb_channel->controller;
+	struct musb *musb = controller->private_data;
+
 
 	DBG(2, "ep%d-%s pkt_sz %d, dma_addr 0x%x length %d, mode %d\n",
 		musb_channel->epnum,
@@ -174,6 +181,21 @@ static int dma_channel_program(struct dma_channel *channel,
 
 	BUG_ON(channel->status == MUSB_DMA_STATUS_UNKNOWN ||
 		channel->status == MUSB_DMA_STATUS_BUSY);
+
+	/* make sure the DMA address is 4 byte aligned. Otherwise fail */
+	if (dma_addr % 4)
+		return false;
+
+	/* In version 1.4, if two DMA channels are simultaneously
+	* enabled in opposite directions, there is a chance that
+	* the DMA controller will hang. However, it is safe to
+	* have multiple DMA channels enabled in the same direction
+	* at the same time.
+	*/
+	if (musb_channel->transmit && controller->rx_active)
+		return false;
+	else if (!musb_channel->transmit && controller->tx_active)
+		return false;
 
 	channel->actual_len = 0;
 	musb_channel->start_addr = dma_addr;
@@ -229,6 +251,12 @@ static int dma_channel_abort(struct dma_channel *channel)
 		musb_write_hsdma_addr(mbase, bchannel, 0);
 		musb_write_hsdma_count(mbase, bchannel, 0);
 		channel->status = MUSB_DMA_STATUS_FREE;
+
+		if (musb_channel->transmit)
+			musb_channel->controller->tx_active &= ~(1 << bchannel);
+		else
+			musb_channel->controller->rx_active &= ~(1 << bchannel);
+
 	}
 
 	return 0;
@@ -256,8 +284,36 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 	spin_lock_irqsave(&musb->lock, flags);
 
 	int_hsdma = musb_readb(mbase, MUSB_HSDMA_INTR);
-	if (!int_hsdma)
-		goto done;
+
+	/* MUSB DMA_INTR register may sometimes read zero when infact there
+	* was a pending interrupt. Workaround this by reading the DMA_COUNT
+	* values for all enabled channels when this condition occurs.
+	* Flag these channels as the ones needing to be serviced.
+	*/
+	if (!int_hsdma) {
+		DBG(2, "spurious DMA irq\n");
+
+		if (!cpu_is_omap3630())
+			goto done;
+
+		for (bchannel = 0; bchannel < MUSB_HSDMA_CHANNELS; bchannel++) {
+			musb_channel = (struct musb_dma_channel *)
+				&(controller->channel[bchannel]);
+			channel = &musb_channel->channel;
+			if (channel->status == MUSB_DMA_STATUS_BUSY) {
+				csr = musb_readw(mbase,
+					MUSB_HSDMA_CHANNEL_OFFSET(bchannel,
+						MUSB_HSDMA_COUNT));
+				if (csr == 0)
+					int_hsdma |= (1 << bchannel);
+			}
+		}
+
+		DBG(2, "int_hsdma = 0x%x\n", int_hsdma);
+
+		if (!int_hsdma)
+			goto done;
+	}
 
 	for (bchannel = 0; bchannel < MUSB_HSDMA_CHANNELS; bchannel++) {
 		if (int_hsdma & (1 << bchannel)) {
@@ -291,6 +347,14 @@ static irqreturn_t dma_controller_irq(int irq, void *private_data)
 				devctl = musb_readb(mbase, MUSB_DEVCTL);
 
 				channel->status = MUSB_DMA_STATUS_FREE;
+
+				if (musb_channel->transmit)
+					controller->tx_active &=
+							~(1 << bchannel);
+				else
+					controller->rx_active &=
+							~(1 << bchannel);
+
 
 				/* completed */
 				if ((devctl & MUSB_DEVCTL_HM)

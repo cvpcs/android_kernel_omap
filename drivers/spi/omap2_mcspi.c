@@ -88,6 +88,9 @@
 #define OMAP2_MCSPI_CHCONF_IS		BIT(18)
 #define OMAP2_MCSPI_CHCONF_TURBO	BIT(19)
 #define OMAP2_MCSPI_CHCONF_FORCE	BIT(20)
+#define OMAP2_MCSPI_CHCONF_TCS0		BIT(25)
+#define OMAP2_MCSPI_CHCONF_TCS1		BIT(26)
+#define OMAP2_MCSPI_CHCONF_TCS_MASK	(0x03 << 25)
 
 #define OMAP2_MCSPI_CHSTAT_RXS		BIT(0)
 #define OMAP2_MCSPI_CHSTAT_TXS		BIT(1)
@@ -231,11 +234,13 @@ static void omap2_mcspi_set_enable(const struct spi_device *spi, int enable)
 
 static void omap2_mcspi_force_cs(struct spi_device *spi, int cs_active)
 {
+#ifdef CONFIG_SPI_SW_CS
 	u32 l;
 
 	l = mcspi_cached_chconf0(spi);
 	MOD_REG_BIT(l, OMAP2_MCSPI_CHCONF_FORCE, cs_active);
 	mcspi_write_chconf0(spi, l);
+#endif
 }
 
 static void omap2_mcspi_set_master_mode(struct spi_master *master)
@@ -248,7 +253,11 @@ static void omap2_mcspi_set_master_mode(struct spi_master *master)
 	l = mcspi_read_reg(master, OMAP2_MCSPI_MODULCTRL);
 	MOD_REG_BIT(l, OMAP2_MCSPI_MODULCTRL_STEST, 0);
 	MOD_REG_BIT(l, OMAP2_MCSPI_MODULCTRL_MS, 0);
+#ifdef CONFIG_SPI_SW_CS
 	MOD_REG_BIT(l, OMAP2_MCSPI_MODULCTRL_SINGLE, 1);
+#else
+	MOD_REG_BIT(l, OMAP2_MCSPI_MODULCTRL_SINGLE, 0);
+#endif
 	mcspi_write_reg(master, OMAP2_MCSPI_MODULCTRL, l);
 
 	omap2_mcspi_ctx[master->bus_num - 1].modulctrl = l;
@@ -595,6 +604,10 @@ static int omap2_mcspi_setup_transfer(struct spi_device *spi,
 		div = 15;
 
 	l = mcspi_cached_chconf0(spi);
+
+	/* TCS Chip select Timing(2.5 clock cycles) */
+	l &= ~(OMAP2_MCSPI_CHCONF_TCS_MASK);
+	l |= OMAP2_MCSPI_CHCONF_TCS1;
 
 	/* standard 4-wire master mode:  SCK, MOSI/out, MISO/in, nCS
 	 * REVISIT: this controller could support SPI_3WIRE mode.

@@ -312,13 +312,10 @@ int pwrdm_for_each_nolock(int (*fn)(struct powerdomain *pwrdm, void *user),
 int pwrdm_for_each(int (*fn)(struct powerdomain *pwrdm, void *user),
 			void *user)
 {
-	unsigned long flags;
 	int ret;
-
-	read_lock_irqsave(&pwrdm_rwlock, flags);
+	read_lock(&pwrdm_rwlock);
 	ret = pwrdm_for_each_nolock(fn, user);
-	read_unlock_irqrestore(&pwrdm_rwlock, flags);
-
+	read_unlock(&pwrdm_rwlock);
 	return ret;
 }
 
@@ -439,20 +436,18 @@ int pwrdm_for_each_clkdm(struct powerdomain *pwrdm,
 			 int (*fn)(struct powerdomain *pwrdm,
 				   struct clockdomain *clkdm))
 {
-	unsigned long flags;
 	int ret = 0;
 	int i;
 
 	if (!fn)
 		return -EINVAL;
 
-	read_lock_irqsave(&pwrdm_rwlock, flags);
+	read_lock(&pwrdm_rwlock);
 
 	for (i = 0; i < PWRDM_MAX_CLKDMS && !ret; i++)
 		ret = (*fn)(pwrdm, pwrdm->pwrdm_clkdms[i]);
 
-	read_unlock_irqrestore(&pwrdm_rwlock, flags);
-
+	read_unlock(&pwrdm_rwlock);
 	return ret;
 }
 
@@ -1079,10 +1074,10 @@ int pwrdm_clear_all_prev_pwrst(struct powerdomain *pwrdm)
 	 * warn & fail if it is not ON.
 	 */
 
-	pr_debug("powerdomain: clearing previous power state reg for %s\n",
+	pr_debug("powerdomain: clearing previous power state to ON for %s\n",
 		 pwrdm->name);
 
-	prm_write_mod_reg(0, pwrdm->prcm_offs, OMAP3430_PM_PREPWSTST);
+	prm_write_mod_reg(0xFF, pwrdm->prcm_offs, OMAP3430_PM_PREPWSTST);
 
 	return 0;
 }
@@ -1194,6 +1189,29 @@ int pwrdm_wait_transition(struct powerdomain *pwrdm)
 
 	return 0;
 }
+
+/**
+ * pwrdm_can_idle - check if the powerdomain can enter idle
+ * @pwrdm: struct powerdomain * the powerdomain to check status of
+ *
+ * Does a functional clock check for the powerdomain and returns 1 if the
+ * powerdomain can enter idle, 0 if not.
+ */
+int pwrdm_can_idle(struct powerdomain *pwrdm)
+{
+	int i;
+	const int fclk_regs[] = { CM_FCLKEN, OMAP3430ES2_CM_FCLKEN3 };
+
+	if (!pwrdm)
+		return -EINVAL;
+
+	for (i = 0; i < pwrdm->fclk_reg_amt; i++)
+		if (cm_read_mod_reg(pwrdm->prcm_offs, fclk_regs[i]) &
+				(0xffffffff ^ pwrdm->fclk_masks[i]))
+			return 0;
+	return 1;
+}
+
 
 int pwrdm_state_switch(struct powerdomain *pwrdm)
 {

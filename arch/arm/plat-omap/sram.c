@@ -46,8 +46,6 @@
 #define OMAP2_SRAM_PUB_VA	(OMAP2_SRAM_VA + 0x800)
 #define OMAP3_SRAM_PA           0x40200000
 #define OMAP3_SRAM_VA           0xfe400000
-#define OMAP3_SRAM_PUB_PA       0x40208000
-#define OMAP3_SRAM_PUB_VA       (OMAP3_SRAM_VA + 0x8000)
 #define OMAP4_SRAM_PA		0x40200000		/*0x402f0000*/
 #define OMAP4_SRAM_VA		0xfe400000		/*0xfe4f0000*/
 
@@ -132,12 +130,14 @@ void __init omap_detect_sram(void)
 	if (cpu_class_is_omap2()) {
 		if (is_sram_locked()) {
 			if (cpu_is_omap34xx()) {
-				omap_sram_base = OMAP3_SRAM_PUB_VA;
-				omap_sram_start = OMAP3_SRAM_PUB_PA;
 				if ((omap_type() == OMAP2_DEVICE_TYPE_EMU) ||
 				    (omap_type() == OMAP2_DEVICE_TYPE_SEC)) {
-					omap_sram_size = 0x7000; /* 28K */
+					omap_sram_base = OMAP3_SRAM_VA + 0xf000;
+					omap_sram_start = OMAP3_SRAM_PA + 0xf000;
+					omap_sram_size = 0x1000; /* 4K */
 				} else {
+					omap_sram_base = OMAP3_SRAM_VA + 0x8000;
+					omap_sram_start = OMAP3_SRAM_PA + 0x8000;
 					omap_sram_size = 0x8000; /* 32K */
 				}
 			} else {
@@ -147,9 +147,16 @@ void __init omap_detect_sram(void)
 			}
 		} else {
 			if (cpu_is_omap34xx()) {
-				omap_sram_base = OMAP3_SRAM_VA;
-				omap_sram_start = OMAP3_SRAM_PA;
-				omap_sram_size = 0x10000; /* 64K */
+				if ((omap_type() == OMAP2_DEVICE_TYPE_EMU) ||
+				    (omap_type() == OMAP2_DEVICE_TYPE_SEC)) {
+					omap_sram_base = OMAP3_SRAM_VA + 0xf000;
+					omap_sram_start = OMAP3_SRAM_PA + 0xf000;
+					omap_sram_size = 0x1000; /* 4K */
+				} else {
+					omap_sram_base = OMAP3_SRAM_VA;
+					omap_sram_start = OMAP3_SRAM_PA;
+					omap_sram_size = 0x10000; /* 64K */
+				}
 			} else if (cpu_is_omap44xx()) {
 				omap_sram_base = OMAP4_SRAM_VA;
 				omap_sram_start = OMAP4_SRAM_PA;

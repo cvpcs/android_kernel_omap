@@ -30,6 +30,7 @@ struct mmc_csd {
 	unsigned int		tacc_ns;
 	unsigned int		r2w_factor;
 	unsigned int		max_dtr;
+	unsigned int		erase_size;
 	unsigned int		read_blkbits;
 	unsigned int		write_blkbits;
 	unsigned int		capacity;
@@ -41,6 +42,7 @@ struct mmc_csd {
 
 struct mmc_ext_csd {
 	u8			rev;
+	u8			csd_structure;
 	unsigned int		sa_timeout;		/* Units: 100ns */
 	unsigned int		hs_max_dtr;
 	unsigned int		sectors;

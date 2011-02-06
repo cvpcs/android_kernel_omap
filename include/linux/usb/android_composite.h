@@ -68,6 +68,11 @@ struct android_usb_platform_data {
 	 */
 	int num_functions;
 	char **functions;
+#ifdef CONFIG_USB_MOT_ANDROID
+	/* Factory Enabled Bit set on Powerup */
+	int factory_enabled;
+#endif
+
 };
 
 /* Platform data for "usb_mass_storage" driver. */
@@ -93,6 +98,8 @@ extern void android_usb_set_connected(int on);
 extern void android_register_function(struct android_usb_function *f);
 
 extern void android_enable_function(struct usb_function *f, int enable);
+
+extern void android_usb_set_pid(char *fname, u16 pid);
 
 
 #endif	/* __LINUX_USB_ANDROID_H */

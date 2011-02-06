@@ -276,6 +276,14 @@ config APM_EMULATION
 	  anything, try disabling/enabling this option (or disabling/enabling
 	  APM in your BIOS).
 
+config QUICK_WAKEUP
+	bool "Quick wakeup"
+	depends on SUSPEND
+	default n
+	---help---
+	  Allow kernel driver to do periodic jobs without resuming the full system
+	  This option can increase battery life on android powered smartphone.
+
 config PM_RUNTIME
 	bool "Run-time PM core functionality"
 	depends on PM

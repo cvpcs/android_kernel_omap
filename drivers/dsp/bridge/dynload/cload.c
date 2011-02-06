@@ -14,6 +14,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <linux/slab.h>
 #include "header.h"
 
 #include "module_list.h"
@@ -708,6 +709,8 @@ static void dload_symbols(struct dload_state *dlthis)
 	struct Local_Symbol *sp;
 	struct dynload_symbol *symp;
 	struct dynload_symbol *newsym;
+	struct doff_syment_t *input_sym;
+	struct doff_syment_t *my_sym_buf;
 
 	s_count = dlthis->dfile_hdr.df_no_syms;
 	if (s_count == 0)
@@ -740,13 +743,18 @@ static void dload_symbols(struct dload_state *dlthis)
 	   become defined from the global symbol table */
 	checks = dlthis->verify.dv_sym_tab_checksum;
 	symbols_left = s_count;
+
+	my_sym_buf = kmalloc(MY_SYM_BUF_SIZ*sizeof(struct doff_syment_t),
+		GFP_KERNEL);
+	if (my_sym_buf == NULL)
+		return;
+
 	do {			/* read all symbols */
 		char *sname;
 		u32 val;
 		s32 delta;
-		struct doff_syment_t *input_sym;
 		unsigned syms_in_buf;
-		struct doff_syment_t my_sym_buf[MY_SYM_BUF_SIZ];
+
 		input_sym = my_sym_buf;
 		syms_in_buf = symbols_left > MY_SYM_BUF_SIZ ?
 					     MY_SYM_BUF_SIZ : symbols_left;
@@ -754,6 +762,7 @@ static void dload_symbols(struct dload_state *dlthis)
 		if (dlthis->strm->read_buffer(dlthis->strm, input_sym, siz) !=
 					      siz) {
 			DL_ERROR(E_READSTRM, SYM_ERRID);
+			kfree(my_sym_buf);
 			return;
 		}
 		if (dlthis->reorder_map)
@@ -854,6 +863,7 @@ static void dload_symbols(struct dload_state *dlthis)
 					DL_ERROR("Absolute symbol %s is "
 					   "defined multiple times with "
 					   "different values", sname);
+					kfree(my_sym_buf);
 					return;
 				}
 			}
@@ -885,6 +895,7 @@ loop_cont:
 	if (~checks)
 		dload_error(dlthis, "Checksum of symbols failed");
 
+	kfree(my_sym_buf);
 }				/* dload_symbols */
 
 /*****************************************************************************
@@ -1132,12 +1143,16 @@ static void dload_data(struct dload_state *dlthis)
 
 	struct {
 		struct image_packet_t ipacket;
-		u8 bufr[BYTE_TO_HOST(IMAGE_PACKET_SIZE)];
+		u8 *bufr;
 	} ibuf;
 
 	/* Indicates whether CINIT processing has occurred */
 	bool cinit_processed = false;
 
+	ibuf.bufr = kmalloc(sizeof(u8)*BYTE_TO_HOST(IMAGE_PACKET_SIZE),
+		GFP_KERNEL);
+	if (ibuf.bufr == NULL)
+		return;
 	/* Loop through the sections and load them one at a time.
 	 */
 	for (curr_sect = 0; curr_sect < dlthis->dfile_hdr.df_no_scns;
@@ -1167,6 +1182,7 @@ static void dload_data(struct dload_state *dlthis)
 				if (dlthis->strm->read_buffer(dlthis->strm,
 				    &ibuf.ipacket, IPH_SIZE) != IPH_SIZE) {
 					DL_ERROR(E_READSTRM, IMAGEPAK);
+					kfree(ibuf.bufr);
 					return;
 				}
 				/* reorder the header if need be */
@@ -1181,6 +1197,7 @@ static void dload_data(struct dload_state *dlthis)
 				if (ipsize > BYTE_TO_HOST(IMAGE_PACKET_SIZE)) {
 					DL_ERROR("Bad image packet size %d",
 						ipsize);
+					kfree(ibuf.bufr);
 					return;
 				}
 				pDest = ibuf.bufr;
@@ -1198,6 +1215,7 @@ static void dload_data(struct dload_state *dlthis)
 				if (dlthis->strm->read_buffer(dlthis->strm,
 				    ibuf.bufr, ipsize) != ipsize) {
 					DL_ERROR(E_READSTRM, IMAGEPAK);
+					kfree(ibuf.bufr);
 					return;
 				}
 				ibuf.ipacket.i_bits = pDest;
@@ -1235,8 +1253,10 @@ static void dload_data(struct dload_state *dlthis)
 					dlthis->image_offset = image_offset;
 					if (!relocate_packet(dlthis,
 					    &ibuf.ipacket, &checks,
-					    &tramp_generated))
+					    &tramp_generated)) {
+						kfree(ibuf.bufr);
 						return;	/* serious error */
+					}
 				}
 				if (~checks)
 					DL_ERROR(E_CHECKSUM, IMAGEPAK);
@@ -1328,7 +1348,9 @@ loop_cont:
 	if (dload_tramp_finalize(dlthis) == 0) {
 		DL_ERROR("Finalization of auto-trampolines (size = " FMT_UI32
 			") failed", dlthis->tramp.tramp_sect_next_addr);
-    }
+	}
+
+	kfree(ibuf.bufr);
 }				/* dload_data */
 
 /*************************************************************************

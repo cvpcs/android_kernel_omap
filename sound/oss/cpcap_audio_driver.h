@@ -138,6 +138,7 @@ enum {
 	CPCAP_AUDIO_OUT_EMU_STEREO = SOUND_MASK_LINE3,
 	CPCAP_AUDIO_OUT_LINEOUT = SOUND_MASK_LINE,
 	CPCAP_AUDIO_OUT_BT_MONO = SOUND_MASK_DIGITAL1,
+	CPCAP_AUDIO_OUT_AUX_I2S = SOUND_MASK_DIGITAL2,
 	CPCAP_AUDIO_OUT_NUM_OF_PATHS
 		/* Max number of audio output paths */
 };
@@ -146,18 +147,17 @@ enum {
 	CPCAP_AUDIO_IN_NONE,
 		/* No audio input selected */
 	CPCAP_AUDIO_IN_HANDSET = SOUND_MASK_PHONEIN,
+	CPCAP_AUDIO_IN_PRIMARY_INTERNAL = CPCAP_AUDIO_IN_HANDSET,
 		/* handset (internal) microphone */
 	CPCAP_AUDIO_IN_AUX_INTERNAL = SOUND_MASK_MIC,
+	CPCAP_AUDIO_IN_SECONDARY_INTERNAL = CPCAP_AUDIO_IN_AUX_INTERNAL,
 		/* Auxiliary (second) internal mic */
-	CPCAP_AUDIO_IN_DUAL_INTERNAL = SOUND_MASK_LINE3,
-		/* both internal microphones are connected */
+	CPCAP_AUDIO_IN_TERTIARY_INTERNAL = SOUND_MASK_LINE2,
+		/* tertiary (third) internal mic */
+	CPCAP_AUDIO_IN_QUATERNARY_INTERNAL = SOUND_MASK_LINE3,
+		/* quaternary (fourth) internal mic */
 	CPCAP_AUDIO_IN_HEADSET = SOUND_MASK_LINE1,
 		/* Audio <- x.5mm headset microphone */
-	CPCAP_AUDIO_IN_EXT_BUS = SOUND_MASK_LINE2,
-		/* Audio <- accessory bus analog input (EMU) */
-	CPCAP_AUDIO_IN_EMU = CPCAP_AUDIO_IN_EXT_BUS,
-	CPCAP_AUDIO_IN_HEADSET_BIAS_ONLY = SOUND_MASK_LINE1,
-		/* 3.5mm headset control when no mic is selected */
 	CPCAP_AUDIO_IN_DUAL_EXTERNAL = SOUND_MASK_LINE,
 		/* Recording from external source */
 	CPCAP_AUDIO_IN_BT_MONO = SOUND_MASK_DIGITAL1,
@@ -181,9 +181,15 @@ enum {
 
 enum {
 	CPCAP_AUDIO_RAT_NONE,	/* Not in a call mode */
-	CPCAP_AUDIO_RAT_2G,		/* In 2G call mode */
-	CPCAP_AUDIO_RAT_3G,		/* In 3G call mode */
+	CPCAP_AUDIO_RAT_UMTS,	/* 3GSM mode */
 	CPCAP_AUDIO_RAT_CDMA	/* In CDMA call mode */
+};
+
+enum {
+	CPCAP_AUDIO_DAI_CONFIG_NORMAL, /*stdac on 1, codec on 0, independent*/
+	CPCAP_AUDIO_DAI_CONFIG_HIFI_DUAL, /*stdac on 1, codec on 0, shared PLL*/
+	CPCAP_AUDIO_DAI_CONFIG_HIFI_DUPLEX_0, /*stdac and codec on 0*/
+	CPCAP_AUDIO_DAI_CONFIG_HIFI_DUPLEX_1, /*stdac and codec on 1*/
 };
 
 /* Clock multipliers for A2LA register */
@@ -217,13 +223,18 @@ struct cpcap_audio_state {
 	int stdac_primary_balance;
 	int ext_primary_balance;
 	unsigned int output_gain;
+	unsigned int fm_output_gain;
 	int microphone;
-	unsigned int input_gain;
+	unsigned int input_gain_l;
+	unsigned int input_gain_r;
 	int rat_type;
+	int dai_config;
 };
 
 void cpcap_audio_set_audio_state(struct cpcap_audio_state *state);
 
 void cpcap_audio_init(struct cpcap_audio_state *state);
+
+int cpcap_audio_is_cdma_shadow(void);
 
 #endif /* CPCAP_AUDIO_DRIVER_H */

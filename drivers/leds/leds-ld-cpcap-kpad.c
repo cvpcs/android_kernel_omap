@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Motorola, Inc.
+ * Copyright (C) 2009-2010 Motorola, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -73,7 +73,7 @@ static int ld_cpcap_kpad_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	info->ld_cpcap_keypad_class_dev.name = LD_KPAD_DEV;
+	info->ld_cpcap_keypad_class_dev.name = SYS_LD_KPAD_DEV;
 	info->ld_cpcap_keypad_class_dev.brightness_set = ld_cpcap_kpad_store;
 
 	ret = led_classdev_register(&pdev->dev,
@@ -106,7 +106,7 @@ static struct platform_driver ld_cpcap_kpad_driver = {
 
 static int __init ld_cpcap_kpad_init(void)
 {
-	return platform_driver_register(&ld_cpcap_kpad_driver);
+	return cpcap_driver_register(&ld_cpcap_kpad_driver);
 }
 
 static void __exit ld_cpcap_kpad_exit(void)

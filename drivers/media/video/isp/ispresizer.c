@@ -37,8 +37,8 @@ static struct isprsz_coef ispreszdefcoef = {
 			-11, 100, 186, -19,
 			-6,   58,   222, -18,
 			-2,   23,   247, -12,
-			},
-			{
+		},
+		{
 			0,    256,  0,    0,
 			-12, 247, 23,   -2,
 			-18, 222, 58,   -6,
@@ -253,10 +253,12 @@ EXPORT_SYMBOL(ispresizer_free);
  *
  * Returns 0 if successful, or -EINVAL if an unsupported input was requested.
  **/
-int ispresizer_config_datapath(enum ispresizer_input input)
+int ispresizer_config_datapath(enum ispresizer_input input, u8 reset)
 {
 	u32 cnt = 0;
 	DPRINTK_ISPRESZ("ispresizer_config_datapath()+\n");
+	cnt = isp_reg_readl(OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT);
+
 	ispres_obj.resinput = input;
 	switch (input) {
 	case RSZ_OTFLY_YUV:
@@ -277,17 +279,18 @@ int ispresizer_config_datapath(enum ispresizer_input input)
 		printk(KERN_ERR "ISP_ERR : Wrong Input\n");
 		return -EINVAL;
 	}
-	isp_reg_or(OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT, cnt);
+	isp_reg_writel(cnt, OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT);
 
-	/* Use bilinear interpolation for upsampling per TRM */
-	if (ispres_obj.outputwidth > ispres_obj.inputwidth)
-		ispresizer_enable_cbilin(1);
-	else
-		ispresizer_enable_cbilin(0);
-
-	ispresizer_config_ycpos(0);
-	ispresizer_config_filter_coef(&ispreszdefcoef);
-	ispresizer_config_luma_enhance(&ispreszdefaultyenh);
+	if (reset) {
+		/* Use bilinear interpolation for upsampling per TRM */
+		if (ispres_obj.outputwidth > ispres_obj.inputwidth)
+			ispresizer_enable_cbilin(1);
+		else
+			ispresizer_enable_cbilin(0);
+		ispresizer_config_ycpos(0);
+		ispresizer_config_filter_coef(&ispreszdefcoef);
+		ispresizer_config_luma_enhance(&ispreszdefaultyenh);
+	}
 	DPRINTK_ISPRESZ("ispresizer_config_datapath()-\n");
 	return 0;
 }
@@ -505,9 +508,12 @@ int ispresizer_config_size(u32 input_w, u32 input_h, u32 output_w,
 		return -EINVAL;
 	}
 
-	/* Set Resizer input address and offset adderss */
-	ispresizer_config_inlineoffset(isp_reg_readl(OMAP3_ISP_IOMEM_PREV,
-						     ISPPRV_WADD_OFFSET));
+	if (isp_lsc_workaround_enabled()) {
+		/* Set Resizer input address and offset adderss */
+		ispresizer_config_inlineoffset(isp_reg_readl(
+						OMAP3_ISP_IOMEM_PREV,
+						ISPPRV_WADD_OFFSET));
+	}
 
 	res = isp_reg_readl(OMAP3_ISP_IOMEM_RESZ, ISPRSZ_CNT) &
 		~(ISPRSZ_CNT_HSTPH_MASK | ISPRSZ_CNT_VSTPH_MASK);
@@ -517,21 +523,24 @@ int ispresizer_config_size(u32 input_w, u32 input_h, u32 output_w,
 		       OMAP3_ISP_IOMEM_RESZ,
 		       ISPRSZ_CNT);
 
-	/* Set start address for cropping */
-	isp_reg_writel(ispres_obj.tmp_buf + isp_get_buf_offset(),
-		       OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
+	if (isp_lsc_workaround_enabled()) {
+		/* Set start address for cropping */
+		isp_reg_writel(ispres_obj.tmp_buf + isp_get_buf_offset(),
+			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_SDR_INADD);
 
-	/*
-	isp_reg_writel(
-		((ispres_obj.ipwd_crop & 15) << ISPRSZ_IN_START_HORZ_ST_SHIFT) |
-		(0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
-		OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
-	*/
-
-	isp_reg_writel((0x00 << ISPRSZ_IN_START_HORZ_ST_SHIFT) |
-		       (0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
-		       OMAP3_ISP_IOMEM_RESZ,
-		       ISPRSZ_IN_START);
+		isp_reg_writel((0x00 << ISPRSZ_IN_START_HORZ_ST_SHIFT) |
+			(0x00 << ISPRSZ_IN_START_VERT_ST_SHIFT),
+			OMAP3_ISP_IOMEM_RESZ,
+			ISPRSZ_IN_START);
+	} else {
+		/* ipwd_crop is in bytes, not pixels */
+		isp_reg_writel(
+			((ispres_obj.ipwd_crop << 1) <<
+				ISPRSZ_IN_START_HORZ_ST_SHIFT) |
+			(ispres_obj.ipht_crop  <<
+				ISPRSZ_IN_START_VERT_ST_SHIFT),
+			OMAP3_ISP_IOMEM_RESZ, ISPRSZ_IN_START);
+	}
 
 	isp_reg_writel((ispres_obj.inputwidth << ISPRSZ_IN_SIZE_HORZ_SHIFT) |
 		       (ispres_obj.inputheight <<
@@ -558,8 +567,8 @@ int ispresizer_config_size(u32 input_w, u32 input_h, u32 output_w,
 		       OMAP3_ISP_IOMEM_RESZ,
 		       ISPRSZ_CNT);
 
-/* write filter coefficients  */
-/* why not call isp_write_filter_coefs() ? */
+	/* write filter coefficients  */
+	/* why not call isp_write_filter_coefs() ? */
 	if (ispres_obj.h_resz <= MID_RESIZE_VALUE) {
 		j = 0;
 		for (i = 0; i < 16; i++) {
@@ -817,7 +826,6 @@ void ispresizer_write_filter_coef(void)
 	DPRINTK_ISPRESZ("ispresizer_write_filter_coef\n");
 
 	if (ispresizer_busy() == 0) {
-		ispresizer_enable(0);
 		if (ispres_obj.h_resz <= MID_RESIZE_VALUE) {
 			j = 0;
 			for (i = 0; i < 16; i++) {
@@ -836,20 +844,20 @@ void ispresizer_write_filter_coef(void)
 			for (i = 0; i < 16; i++) {
 				if ((i + 1) % 4 == 0) {
 					isp_reg_writel((ispres_obj.coeflist.
-							h_filter_coef_7tap[j] <<
-							ISPRSZ_HFILT10_COEF0_SHIFT),
-							OMAP3_ISP_IOMEM_RESZ,
-							ISPRSZ_HFILT10 + (i * 0x04));
+						h_filter_coef_7tap[j] <<
+						ISPRSZ_HFILT10_COEF0_SHIFT),
+						OMAP3_ISP_IOMEM_RESZ,
+						ISPRSZ_HFILT10 + (i * 0x04));
 					j += 1;
 				} else {
 					isp_reg_writel((ispres_obj.coeflist.
-							h_filter_coef_7tap[j] <<
-							ISPRSZ_HFILT10_COEF0_SHIFT) |
-							(ispres_obj.coeflist.
-							h_filter_coef_7tap[j+1] <<
-							ISPRSZ_HFILT10_COEF1_SHIFT),
-							OMAP3_ISP_IOMEM_RESZ,
-							ISPRSZ_HFILT10 + (i * 0x04));
+						h_filter_coef_7tap[j] <<
+						ISPRSZ_HFILT10_COEF0_SHIFT) |
+						(ispres_obj.coeflist.
+						h_filter_coef_7tap[j+1] <<
+						ISPRSZ_HFILT10_COEF1_SHIFT),
+						OMAP3_ISP_IOMEM_RESZ,
+						ISPRSZ_HFILT10 + (i * 0x04));
 					j += 2;
 				}
 			}
@@ -872,20 +880,20 @@ void ispresizer_write_filter_coef(void)
 			for (i = 0; i < 16; i++) {
 				if ((i + 1) % 4 == 0) {
 					isp_reg_writel((ispres_obj.coeflist.
-							v_filter_coef_7tap[j] <<
-							ISPRSZ_VFILT10_COEF0_SHIFT),
-							OMAP3_ISP_IOMEM_RESZ,
-							ISPRSZ_VFILT10 + (i * 0x04));
+						v_filter_coef_7tap[j] <<
+						ISPRSZ_VFILT10_COEF0_SHIFT),
+						OMAP3_ISP_IOMEM_RESZ,
+						ISPRSZ_VFILT10 + (i * 0x04));
 					j += 1;
 				} else {
 					isp_reg_writel((ispres_obj.coeflist.
-							v_filter_coef_7tap[j] <<
-							ISPRSZ_VFILT10_COEF0_SHIFT) |
-							(ispres_obj.coeflist.
-							v_filter_coef_7tap[j+1] <<
-							ISPRSZ_VFILT10_COEF1_SHIFT),
-							OMAP3_ISP_IOMEM_RESZ,
-							ISPRSZ_VFILT10 + (i * 0x04));
+						v_filter_coef_7tap[j] <<
+						ISPRSZ_VFILT10_COEF0_SHIFT) |
+						(ispres_obj.coeflist.
+						v_filter_coef_7tap[j+1] <<
+						ISPRSZ_VFILT10_COEF1_SHIFT),
+						OMAP3_ISP_IOMEM_RESZ,
+						ISPRSZ_VFILT10 + (i * 0x04));
 					j += 2;
 				}
 			}

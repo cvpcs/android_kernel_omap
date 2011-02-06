@@ -375,7 +375,7 @@ DSP_STATUS WMD_IO_OnLoaded(struct IO_MGR *hIOMgr)
 	u32 uNumProcs = 0;
 	s32 ndx = 0;
 	/* DSP MMU setup table */
-	struct WMDIOCTL_EXTPROC aEProc[WMDIOCTL_NUMOFMMUTLB];
+	struct WMDIOCTL_EXTPROC *aEProc;
 	struct CFG_HOSTRES hostRes;
 	u32 mapAttrs;
 	u32 ulShm0End;
@@ -389,6 +389,12 @@ DSP_STATUS WMD_IO_OnLoaded(struct IO_MGR *hIOMgr)
 	u32 pgSize[] = { HW_PAGE_SIZE_16MB, HW_PAGE_SIZE_1MB,
 			   HW_PAGE_SIZE_64KB, HW_PAGE_SIZE_4KB };
 
+	aEProc = kmalloc(sizeof(struct WMDIOCTL_EXTPROC)*WMDIOCTL_NUMOFMMUTLB,
+		GFP_KERNEL);
+	if (aEProc == NULL) {
+		status = DSP_EFAIL;
+		goto func_end;
+	}
 	status = DEV_GetCodMgr(hIOMgr->hDevObject, &hCodMan);
 	if (DSP_FAILED(status))
 		goto func_end;
@@ -843,6 +849,7 @@ func_cont:
 #endif
 	IO_EnableInterrupt(hIOMgr->hWmdContext);
 func_end:
+	kfree(aEProc);
 	return status;
 }
 

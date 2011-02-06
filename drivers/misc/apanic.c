@@ -3,6 +3,8 @@
  * Copyright (C) 2009 Google, Inc.
  * Author: San Mehat <san@android.com>
  *
+ * Copyright (C) 2009 Motorola, Inc.
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -29,6 +31,8 @@
 #include <linux/platform_device.h>
 #include <linux/uaccess.h>
 #include <linux/mtd/mtd.h>
+#include <linux/rtc.h>
+#include <linux/console.h>
 #include <linux/notifier.h>
 #include <linux/mtd/mtd.h>
 #include <linux/debugfs.h>
@@ -197,7 +201,7 @@ static int apanic_proc_read(char *buffer, char **start, off_t offset,
 		count -= page_offset;
 	memcpy(buffer, ctx->bounce + page_offset, count);
 
-	*start = count;
+	*start = (char *)count;
 
 	if ((offset + count) == file_length)
 		*peof = 1;
@@ -494,6 +498,10 @@ static int apanic(struct notifier_block *this, unsigned long event,
 	int threads_offset = 0;
 	int threads_len = 0;
 	int rc;
+	struct timespec now;
+	struct timespec uptime;
+	struct rtc_time rtc_timestamp;
+	struct console *con;
 
 	if (in_panic)
 		return NOTIFY_DONE;
@@ -511,6 +519,28 @@ static int apanic(struct notifier_block *this, unsigned long event,
 		printk(KERN_EMERG "Crash partition in use!\n");
 		goto out;
 	}
+
+	/*
+	 * Add timestamp to displays current UTC time and uptime (in seconds).
+	 */
+	now = current_kernel_time();
+	rtc_time_to_tm((unsigned long)now.tv_sec, &rtc_timestamp);
+	do_posix_clock_monotonic_gettime(&uptime);
+	bust_spinlocks(1);
+	printk(KERN_EMERG "Timestamp = %lu.%03lu\n",
+			(unsigned long)now.tv_sec,
+			(unsigned long)(now.tv_nsec / 1000000));
+	printk(KERN_EMERG "Current Time = "
+			"%02d-%02d %02d:%02d:%lu.%03lu, "
+			"Uptime = %lu.%03lu seconds\n",
+			rtc_timestamp.tm_mon + 1, rtc_timestamp.tm_mday,
+			rtc_timestamp.tm_hour, rtc_timestamp.tm_min,
+			(unsigned long)rtc_timestamp.tm_sec,
+			(unsigned long)(now.tv_nsec / 1000000),
+			(unsigned long)uptime.tv_sec,
+			(unsigned long)(uptime.tv_nsec/USEC_PER_SEC));
+	bust_spinlocks(0);
+
 	console_offset = ctx->mtd->writesize;
 
 	/*
@@ -531,9 +561,15 @@ static int apanic(struct notifier_block *this, unsigned long event,
 	if (!threads_offset)
 		threads_offset = ctx->mtd->writesize;
 
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
 	ram_console_enable_console(0);
+#endif
 
 	log_buf_clear();
+
+	for (con = console_drivers; con; con = con->next)
+		con->flags &= ~CON_ENABLED;
+
 	show_state_filter(0);
 	threads_len = apanic_write_console(ctx->mtd, threads_offset);
 	if (threads_len < 0) {
@@ -590,7 +626,7 @@ static int panic_dbg_set(void *data, u64 val)
 
 DEFINE_SIMPLE_ATTRIBUTE(panic_dbg_fops, panic_dbg_get, panic_dbg_set, "%llu\n");
 
-int __init apanic_init(void)
+static int __init apanic_init(void)
 {
 	register_mtd_user(&mtd_panic_notifier);
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);

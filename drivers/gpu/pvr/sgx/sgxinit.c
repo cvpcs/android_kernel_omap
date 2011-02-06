@@ -54,7 +54,9 @@
 
 DECLARE_LIST_ANY_VA(PVRSRV_POWER_DEV);
 
+#if defined(SUPPORT_SGX_HWPERF)
 IMG_VOID* MatchPowerDeviceIndex_AnyVaCb(PVRSRV_POWER_DEV *psPowerDev, va_list va);
+#endif
 
 #define VAR(x) #x
 
@@ -330,10 +332,16 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo)
 			 MAKEUNIQUETAG(psSGXHostCtlMemInfo));
 #endif 
 
+#if defined(SGX_FEATURE_MULTI_EVENT_KICK)
+	OSWriteHWReg(psDevInfo->pvRegsBaseKM,
+				 SGX_MP_CORE_SELECT(EUR_CR_EVENT_KICK2, 0),
+				 EUR_CR_EVENT_KICK2_NOW_MASK);
+#else
 	*psDevInfo->pui32KernelCCBEventKicker = (*psDevInfo->pui32KernelCCBEventKicker + 1) & 0xFF;
 	OSWriteHWReg(psDevInfo->pvRegsBaseKM,
 				 SGX_MP_CORE_SELECT(EUR_CR_EVENT_KICK, 0),
 				 EUR_CR_EVENT_KICK_NOW_MASK);
+#endif 
 
 #if defined(PDUMP)
 	
@@ -344,6 +352,9 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo)
 
 	if (bFirstTime)
 	{
+#if defined(SGX_FEATURE_MULTI_EVENT_KICK)
+		PDUMPREG(SGX_MP_CORE_SELECT(EUR_CR_EVENT_KICK2, 0), EUR_CR_EVENT_KICK2_NOW_MASK);
+#else
 		psDevInfo->ui32KernelCCBEventKickerDumpVal = 1;
 		PDUMPCOMMENTWITHFLAGS(PDUMP_FLAGS_CONTINUOUS,
 							  "First increment of the SGX event kicker value\n");
@@ -354,6 +365,7 @@ PVRSRV_ERROR SGXInitialise(PVRSRV_SGXDEV_INFO	*psDevInfo)
 				 PDUMP_FLAGS_CONTINUOUS,
 				 MAKEUNIQUETAG(psDevInfo->psKernelCCBEventKickerMemInfo));
 		PDUMPREG(SGX_MP_CORE_SELECT(EUR_CR_EVENT_KICK, 0), EUR_CR_EVENT_KICK_NOW_MASK);
+#endif 
 		bFirstTime = IMG_FALSE;
 	}
 #endif 
@@ -1014,7 +1026,7 @@ IMG_VOID SGXOSTimer(IMG_VOID *pvData)
 #if defined(NO_HARDWARE)
 	bPoweredDown = IMG_TRUE;
 #else
-	bPoweredDown = (IMG_BOOL)!SGXIsDevicePowered(psDeviceNode);
+	bPoweredDown = SGXIsDevicePowered(psDeviceNode) ? IMG_FALSE : IMG_TRUE;
 #endif 
 
 	
@@ -1492,9 +1504,10 @@ PVRSRV_ERROR SGXDevInitCompatCheck(PVRSRV_DEVICE_NODE *psDeviceNode)
 
 	
 	IMG_BOOL	bCheckCoreRev;
-	const IMG_UINT32	aui32CoreRevExceptions[] = {
+	const IMG_UINT32	aui32CoreRevExceptions[] =
+		{
 			0x10100, 0x10101
-	};
+		};
 	const IMG_UINT32	ui32NumCoreExceptions = sizeof(aui32CoreRevExceptions) / (2*sizeof(IMG_UINT32));
 	IMG_UINT	i;
 #endif
@@ -1854,7 +1867,6 @@ PVRSRV_ERROR SGXGetMiscInfoKM(PVRSRV_SGXDEV_INFO	*psDevInfo,
 		{
 			PVRSRV_ERROR eError;
 			PVRSRV_SGX_MISCINFO_FEATURES		*psSGXFeatures;
-			PPVRSRV_KERNEL_MEM_INFO	psMemInfo = psDevInfo->psKernelSGXMiscMemInfo;
 
 			eError = SGXGetMiscInfoUkernel(psDevInfo, psDeviceNode);
 			if(eError != PVRSRV_OK)
@@ -2039,32 +2051,6 @@ PVRSRV_ERROR SGXGetMiscInfoKM(PVRSRV_SGXDEV_INFO	*psDevInfo,
 			return PVRSRV_OK;
 		}
 #endif 
-#if defined(SUPPORT_CPU_CACHED_BUFFERS)
-		case SGX_MISC_INFO_FLUSH_CPUCACHE_NOW:
-		{
-			SYS_DATA *psSysData;
-
-			SysAcquireData(&psSysData);
-
-			
-			OSFlushCPUCache();
-			psSysData->bFlushCPUCache = IMG_FALSE;
-
-			return PVRSRV_OK;
-		}
-		case SGX_MISC_INFO_FLUSH_CPUCACHE_QUEUE:
-		{
-			SYS_DATA *psSysData;
-
-			SysAcquireData(&psSysData);
-
-			
-			psSysData->bFlushCPUCache = IMG_TRUE;
-
-			return PVRSRV_OK;
-		}
-#endif 
-
 		case SGX_MISC_INFO_DUMP_DEBUG_INFO:
 		{
 			PVR_LOG(("User requested SGX debug info"));

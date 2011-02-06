@@ -22,7 +22,7 @@
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <media/v4l2-int-device.h>
-#include <mach/gpio.h>
+#include <plat/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -151,12 +151,12 @@ static struct vcontrol {
 };
 
 /**
- * find_vctrl - Finds the requested ID in the video control structure array
+ * hplens_find_vctrl - Finds the requested ID in the video control structure array
  * @id: ID of control to search the video control array for
  *
  * Returns the index of the requested ID from the control structure array
  */
-static int find_vctrl(int id)
+int hplens_find_vctrl(int id)
 {
 	int i;
 
@@ -297,7 +297,7 @@ static int hplens_ioctl_queryctrl(struct v4l2_int_device *s, struct v4l2_queryct
 {
 	int i;
 
-	i = find_vctrl(qc->id);
+	i = hplens_find_vctrl(qc->id);
 	if (i == -EINVAL)
 		qc->flags = V4L2_CTRL_FLAG_DISABLED;
 
@@ -352,6 +352,7 @@ static int __hplens_ioctl(unsigned int cmd, void *arg)
 		err = copy_from_user(&reg, arg,  sizeof(struct hplens_reg));
 		if (err == 0) {
 			mutex_lock(&hplens_mutex);
+
 			if ((reg.len_addr + reg.len_data) > sizeof(write_buffer)) {
 				err = -EINVAL;
 				mutex_unlock(&hplens_mutex);
@@ -446,7 +447,7 @@ static int hplens_ioctl_s_ctrl(struct v4l2_int_device *s,
 {
 	int ret = -EINVAL;
 
-	if (find_vctrl(vc->id) < 0)
+	if (hplens_find_vctrl(vc->id) < 0)
 		return -EINVAL;
 
 	switch (vc->id) {

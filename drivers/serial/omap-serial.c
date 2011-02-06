@@ -50,6 +50,12 @@
 #include <asm/mach/serial_omap.h>
 
 unsigned long isr8250_activity;
+static int gps_port;
+
+void __init omap_uart_set_gps_port(int port)
+{
+	gps_port = port;
+}
 
 #define CONSOLE_NAME	"console="
 
@@ -128,6 +134,9 @@ struct uart_omap_port {
 	int			use_console;
 	spinlock_t		uart_lock;
 	char			dev_name[50];
+#ifdef CONFIG_SERIAL_OMAP3430_HW_FLOW_CONTROL
+	unsigned char ctsrts;
+#endif
 	struct work_struct	tty_work;
 };
 
@@ -711,7 +720,8 @@ static int serial_omap_startup(struct uart_port *port)
 	 * Clear the interrupt registers.
 	 */
 	(void) serial_in(up, UART_LSR);
-	(void) serial_in(up, UART_RX);
+	if (serial_in(up, UART_LSR) & UART_LSR_DR)
+		(void) serial_in(up, UART_RX);
 	(void) serial_in(up, UART_IIR);
 	(void) serial_in(up, UART_MSR);
 	/*
@@ -812,6 +822,14 @@ static void serial_omap_shutdown(struct uart_port *port)
 	serial_omap_set_mctrl(&up->port, (up->port.mctrl & ~TIOCM_RTS));
 	spin_unlock_irqrestore(&up->port.lock, flags);
 
+	if (up->pdev->id == gps_port) {
+		serial_out(up, UART_LCR, UART_LCR_DLAB);
+		serial_out(up, UART_DLL, 0);
+		serial_out(up, UART_DLM, 0);
+		serial_out(up, UART_LCR, 0);
+		serial_out(up, UART_OMAP_MDR1, OMAP_MDR1_DISABLE);
+	}
+
 	/*
 	 * Disable break condition and FIFOs
 	 */
@@ -821,8 +839,8 @@ static void serial_omap_shutdown(struct uart_port *port)
 	/*
 	 * Read data port to reset things, and then free the irq
 	 */
-	(void) serial_in(up, UART_RX);
-
+	if (serial_in(up, UART_LSR) & UART_LSR_DR)
+		(void) serial_in(up, UART_RX);
 	if (up->use_dma) {
 		int tmp;
 		if (up->is_buf_dma_alloced) {
@@ -947,7 +965,12 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	serial_out(up, UART_IER, up->ier);
 
 	if (termios->c_cflag & CRTSCTS) {
+#ifdef CONFIG_SERIAL_OMAP3430_HW_FLOW_CONTROL
+		efr |= ((up->ctsrts & UART_EFR_CTS) |
+				(up->restore_autorts ? 0 : UART_EFR_RTS));
+#else
 		efr |= (UART_EFR_CTS | (up->restore_autorts ? 0 : UART_EFR_RTS));
+#endif
 	}
 
 	serial_out(up, UART_LCR, cval | UART_LCR_DLAB);/* set DLAB */
@@ -973,7 +996,8 @@ serial_omap_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * enabling UART
 	 */
 	(void) serial_in(up, UART_LSR);
-	(void) serial_in(up, UART_RX);
+	if (serial_in(up, UART_LSR) & UART_LSR_DR)
+		(void) serial_in(up, UART_RX);
 	(void) serial_in(up, UART_IIR);
 	(void) serial_in(up, UART_MSR);
 
@@ -1436,6 +1460,9 @@ static int serial_omap_probe(struct platform_device *pdev)
 		up->port.flags = pdata->flags;
 		up->port.uartclk = 48000000;
 		up->port.regshift = 2;
+#ifdef CONFIG_SERIAL_OMAP3430_HW_FLOW_CONTROL
+		up->ctsrts = pdata->ctsrts;
+#endif
 	}
 
 

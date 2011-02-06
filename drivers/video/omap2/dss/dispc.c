@@ -153,7 +153,7 @@ static struct {
 
 	u32	fifo_size[3];
 
-	spinlock_t irq_lock;
+	spinlock_t irq_lock; /* need comment */
 	u32 irq_error_mask;
 	struct omap_dispc_isr_data registered_isr[DISPC_MAX_NR_ISRS];
 	u32 error_irqs;
@@ -543,158 +543,351 @@ static void _dispc_write_firv_reg(enum omap_plane plane, int reg, u32 value)
 	dispc_write_reg(DISPC_VID_FIR_COEF_V(plane-1, reg), value);
 }
 
-static void _dispc_set_scale_coef(enum omap_plane plane, int hscaleup,
-		int vscaleup, int five_taps)
+/* New coefficients Begin */
+static void _dispc_set_scale_coef(enum omap_plane plane,
+			u16 orig_width, u16 out_width,
+			u16 orig_height, u16 out_height,
+			int five_taps, bool dmaoptenabled)
 {
-	/* Coefficients for horizontal up-sampling */
-	static const u32 coef_hup[8] = {
-		0x00800000,
-		0x0D7CF800,
-		0x1E70F5FF,
-		0x335FF5FE,
-		0xF74949F7,
-		0xF55F33FB,
-		0xF5701EFE,
-		0xF87C0DFF,
-	};
+	unsigned long reg, mval, rem_ratio;
+	short int vc_3tap[3][8];
+	short int vc[5][8];
+	short int hc[5][8];
+	int i = 0;
 
-	/* Coefficients for horizontal down-sampling */
-	static const u32 coef_hdown[8] = {
-		0x24382400,
-		0x28371FFE,
-		0x2C361BFB,
-		0x303516F9,
-		0x11343311,
-		0x1635300C,
-		0x1B362C08,
-		0x1F372804,
-	};
+	/* 3-taps vertical filter coefficients */
+	/* Downscaling matrix, if image width > 1024 */
+	const static short int filter_coeff_vc_d[3][8] = {
+		{36,	40,	45,	50,	18, 	23,	27, 	31},
+		{56,	57,	56,	55,	55,	55,	56,	57},
+		{36,	31,	27,	23,	55,	50,	45,	40} };
 
-	/* Coefficients for horizontal and vertical up-sampling */
-	static const u32 coef_hvup[2][8] = {
-		{
-		0x00800000,
-		0x037B02FF,
-		0x0C6F05FE,
-		0x205907FB,
-		0x00404000,
-		0x075920FE,
-		0x056F0CFF,
-		0x027B0300,
-		},
-		{
-		0x00800000,
-		0x0D7CF8FF,
-		0x1E70F5FE,
-		0x335FF5FB,
-		0xF7404000,
-		0xF55F33FE,
-		0xF5701EFF,
-		0xF87C0D00,
-		},
-	};
+	/* Upscaling matrix, if image width > 1024 */
+	const static short int filter_coeff_vc_u[3][8] = {
+		{0,	16,	32,	48,	0,	0,	0,	0 },
+		{128,	112,	96,	80,	64,	80,	96,	112 },
+		{0,	0,	0,	0,	64,	48,	32,	16 } };
 
-	/* Coefficients for horizontal and vertical down-sampling */
-	static const u32 coef_hvdown[2][8] = {
-		{
-		0x24382400,
-		0x28391F04,
-		0x2D381B08,
-		0x3237170C,
-		0x123737F7,
-		0x173732F9,
-		0x1B382DFB,
-		0x1F3928FE,
-		},
-		{
-		0x24382400,
-		0x28371F04,
-		0x2C361B08,
-		0x3035160C,
-		0x113433F7,
-		0x163530F9,
-		0x1B362CFB,
-		0x1F3728FE,
-		},
-	};
+	/* 5-taps horizontal filter coefficients */
+	/* Downscaling matrix, if image width > 1024 */
+	const static short int filter_coeff_hc_d[5][8] = {
+		{0,	4,	8,	12,	-9,	-7,	-5,	-2 },
+		{36,	40,	44,	48,	17,	22,	27,	 31 },
+		{56, 	55,	54,	53,	52,	53,	54,	55 },
+		{36,	31,	27,	22,	51,	48,	44,	40 },
+		{0,	-2,	-5,	-7,	17,	12,	8,	4 } };
 
-	/* Coefficients for vertical up-sampling */
-	static const u32 coef_vup[8] = {
-		0x00000000,
-		0x0000FF00,
-		0x0000FEFF,
-		0x0000FBFE,
-		0x000000F7,
-		0x0000FEFB,
-		0x0000FFFE,
-		0x000000FF,
-	};
+	/* Upscaling matrix, if image width > 1024 */
+	const static short int filter_coeff_hc_u[5][8] = {
+		{0,	0,	0,	0,	0,	0,	0,	0 },
+		{0,	16,	32,	48,	0,	0,	0,	0 },
+		{128,	112,	96,	80,	64,	80,	96,	112 },
+		{0,	0,	0,	0,	64,	48,	32,	16 },
+		{0,	0,	0,	0,	0,	0,	0,	0 } };
 
 
-	/* Coefficients for vertical down-sampling */
-	static const u32 coef_vdown[8] = {
-		0x00000000,
-		0x000004FE,
-		0x000008FB,
-		0x00000CF9,
-		0x0000F711,
-		0x0000F90C,
-		0x0000FB08,
-		0x0000FE04,
-	};
+	/* Filter coefficients designed for various scaling ratios */
+	/* Below Co-effients are defined for 5 taps as
+	* [0] = VCC22
+	* [1] = VC2
+	* [2] = VC1
+	* [3] = VC0
+	* [4] = VC00
+	*/
 
-	const u32 *h_coef;
-	const u32 *hv_coef;
-	const u32 *hv_coef_mod;
-	const u32 *v_coef;
-	int i;
+	const static short int filter_coeff_M8[5][8] = {
+		{17,	14,	5,	-6,	2,	9,	15,	19},
+		{-20,	-4,	17,	47,	-18,	-27,	-30,	-27},
+		{134,	127,	121,	105,	81,	105,	121,	127},
+		{-20,	-27,	-30,	-27,	81,	47,	17,	-4},
+		{17,	18,	15,	9,	-18,	-6,	5,	13 } };
 
-	if (hscaleup)
-		h_coef = coef_hup;
-	else
-		h_coef = coef_hdown;
+	const static short int filter_coeff_M9[5][8] = {
+		{8,	1,	-9,	-18,	14,	17,	17,	14},
+		{-8,	8,	30,	56,	-26,	-30,	-27,	-21},
+		{128,	126,	117,	103,	83,	103,	117,	126},
+		{-8,	-21,	-27,	-30,	83,	56,	30,	8},
+		{8,	14,	17,	17,	-26,	-18,	-9,	1} };
 
-	if (vscaleup) {
-		hv_coef = coef_hvup[five_taps];
-		v_coef = coef_vup;
+	const static short int filter_coeff_M10[5][8] = {
+		{-2,	-10,	-18,	-24,	18,	15,	11,	5},
+		{2,	20,	41,	62,	-28,	-27,	-22,	-12},
+		{128,	125,	116,	102,	83,	102,	116,	125},
+		{2,	-12,	-22,	-27,	83,	62,	41,	20},
+		{-2,	5,	11,	15,	-28,	-24,	-18,	-10} };
 
-		if (hscaleup)
-			hv_coef_mod = NULL;
-		else
-			hv_coef_mod = coef_hvdown[five_taps];
-	} else {
-		hv_coef = coef_hvdown[five_taps];
-		v_coef = coef_vdown;
+	const static short int filter_coeff_M11[5][8] = {
+		{-12,	-19,	-24,	-27,	14,	9,	3,	-4},
+		{12,	30,	49,	67,	-26,	-22,	-15,	-3},
+		{128,	124,	115,	101,	83,	101,	115,	124},
+		{12,	-3,	-15,	-22,	83,	67,	49,	30},
+		{-12,	-4,	3,	9,	-26,	-27,	-24,	-19} };
 
-		if (hscaleup)
-			hv_coef_mod = coef_hvup[five_taps];
-		else
-			hv_coef_mod = NULL;
-	}
+	const static short int filter_coeff_M12[5][8] = {
+		{-19,	-24,	-26,	-25,	6,	1,	-6,	-12},
+		{21,	38,	55,	70,	-21,	-16,	-7,	6},
+		{124,	120,	112,	98,	82,	98,	112,	120},
+		{21,	6,	-7,	-16,	82,	70,	55,	38},
+		{-19,	-12,	-6,	1,	-21,	-25,	-26,	-24} };
 
-	for (i = 0; i < 8; i++) {
-		u32 h, hv;
+	const static short int filter_coeff_M13[5][8] = {
+		{-22,	-25,	-25,	-22,	0,	-6,	-12,	-18 },
+		{27,	43,	58,	71,	-17,	-10,	0,	13 },
+		{118,	115,	107,	95,	81,	95,	107,	115 },
+		{27,	13,	0,	-10,	81,	71,	58,	43 },
+		{-22,	-18,	-12,	-6,	-17,	-22,	-25,	-25} };
 
-		h = h_coef[i];
+	const static short int filter_coeff_M14[5][8] = {
+		{-23,	-24,	-22,	-18,	-6,	-11,	-16,	-20 },
+		{32,	46,	59,	70,	-11,	-4,	6,	18 },
+		{110,	108,	101,	91,	78,	91,	101,	108 },
+		{32,	18,	6,	-4,	78,	70,	59,	46 },
+		{-23,	-20,	-16,	-11,	-11,	-18,	-22,	-24} };
 
-		hv = hv_coef[i];
+	const static short int filter_coeff_M16[5][8] = {
+		{-20,	-18,	-14,	-9,	-14,	-17,	-19,	-21},
+		{37,	48,	58,	66,	-2,	6,	15,	26},
+		{94,	93,	88,	82,	73,	82,	88,	93},
+		{37,	26,	15,	6,	73,	66,	58,	48},
+		{-20,	-21,	-19,	-17,	-2,	-9,	-14,	-18} };
 
-		if (hv_coef_mod) {
-			hv &= 0xffffff00;
-			hv |= (hv_coef_mod[i] & 0xff);
+	const static short int filter_coeff_M19[5][8] = {
+		{-12,	-8,	-4,	1,	-16,	-16,	-16,	-13},
+		{38,	47,	53,	59,	8,	15,	22,	31},
+		{76,	72,	73,	69,	64,	69,	73,	72},
+		{38,	31,	22,	15,	64,	59,	53,	47},
+		{-12,	-14,	-16,	-16,	8,	1,	-4,	-9} };
+
+	const static short int filter_coeff_M22[5][8] = {
+		{-6,	-1,	3,	8,	-14,	-13,	-11,	-7},
+		{37,	44,	48,	53,	13,	19,	25,	32},
+		{66,	61,	63,	61,	58,	61,	63,	61},
+		{37,	32,	25,	19,	58,	53,	48,	44},
+		{-6,	-8,	-11,	-13,	13,	8,	3,	-2} };
+
+	const static short int filter_coeff_M26[5][8] = {
+		{1,	4,	8,	13,	-10,	-8,	-5,	-2},
+		{36,	40,	44,	48,	18,	22,	27,	31},
+		{54,	55,	54,	53,	51,	53,	54,	55},
+		{36,	31,	27,	22,	51,	48,	44,	40},
+		{1,	-2,	-5,	-8,	18,	13,	8,	4 } };
+
+	const static short int filter_coeff_M32[5][8] =	{
+		{7,	10,	14,	17,	-4,	-1,	1,	4},
+		{34,	37,	39,	42,	21,	24,	28,	31},
+		{46,	46,	46,	46,	45,	46,	46,	46},
+		{34,	31,	27,	24,	45,	42,	39,	37},
+		{7,	4,	1,	-1,	21,	17,	14,	10} };
+
+	/* Select the coefficients based on the ratio - height/vertical */
+	if (out_height != 0 && five_taps) {
+		if (out_height != orig_height) {
+			rem_ratio = 0;
+			mval = 8; /* default */
+			rem_ratio =  out_height / orig_height ;
+			if (rem_ratio > 1) {
+				mval = 8;
+				DSSDBG("Coefficient class mval = %lu \n", mval);
+			} else {
+				mval = (8 * orig_height) / out_height;
+			}
+			switch (mval) {
+			case 8:
+				memcpy(vc, filter_coeff_M8, sizeof(vc));
+				break;
+			case 9:
+				memcpy(vc, filter_coeff_M9, sizeof(vc));
+				break;
+			case 10:
+				memcpy(vc, filter_coeff_M10, sizeof(vc));
+				break;
+			case 11:
+				memcpy(vc, filter_coeff_M11, sizeof(vc));
+				break;
+			case 12:
+				memcpy(vc, filter_coeff_M12, sizeof(vc));
+				break;
+			case 13:
+				memcpy(vc, filter_coeff_M13, sizeof(vc));
+				break;
+			case 14:
+				memcpy(vc, filter_coeff_M14, sizeof(vc));
+				break;
+			case 15:
+			case 16:
+				memcpy(vc, filter_coeff_M16, sizeof(vc));
+				break;
+			case 17:
+			case 18:
+			case 19:
+				memcpy(vc, filter_coeff_M19, sizeof(vc));
+				break;
+			case 20:
+			case 21:
+			case 22:
+				memcpy(vc, filter_coeff_M22, sizeof(vc));
+				break;
+			case 23:
+			case 24:
+			case 25:
+			case 26:
+				memcpy(vc, filter_coeff_M26, sizeof(vc));
+				break;
+			case 27:
+			case 28:
+			case 29:
+			case 30:
+			case 31:
+			case 32:
+				memcpy(vc, filter_coeff_M32, sizeof(vc));
+				break;
+			default:
+				DSSDBG("Chosing default M val = 8 \n");
+				memcpy(vc, filter_coeff_M8, sizeof(vc));
+				break;
+			};
+		}else {
+			/* out_height == orig_height */
+			if (dmaoptenabled && cpu_is_omap3630()){
+				DSSDBG("Chosing default M val = 8 \n");
+				memcpy(vc, filter_coeff_M8, sizeof(vc));
+			}
 		}
-
-		_dispc_write_firh_reg(plane, i, h);
-		_dispc_write_firhv_reg(plane, i, hv);
+	} else if (out_height != 0 && !five_taps) {
+		if (out_height != orig_height) {
+			/* Vertical scaling */
+			if (out_height > orig_height) {
+				DSSDBG("Vertical upscaling \n");
+				memcpy(vc_3tap, filter_coeff_vc_u,
+					sizeof(vc_3tap));
+			} else {
+				DSSDBG("Vertical downscaling \n");
+				memcpy(vc_3tap, filter_coeff_vc_d,
+					sizeof(vc_3tap));
+			}
+		}
 	}
 
-	if (!five_taps)
-		return;
 
+	/* Select the coefficients based on the ratio - width / horizontal */
+	if (out_width != 0 && five_taps) {
+		if (out_width != orig_width) {
+			rem_ratio = 0;
+			mval = 8; /* default */
+			rem_ratio =  out_width / orig_width ;
+			if (rem_ratio > 1)
+				mval = 8;
+			else
+				mval = (8 * orig_width) / out_width;
+			switch (mval) {
+			case 8:
+				memcpy(hc, filter_coeff_M8, sizeof(hc));
+				break;
+			case 9:
+				memcpy(hc, filter_coeff_M9, sizeof(hc));
+				break;
+			case 10:
+				memcpy(hc, filter_coeff_M10, sizeof(hc));
+				break;
+			case 11:
+				memcpy(hc, filter_coeff_M11, sizeof(hc));
+				break;
+			case 12:
+				memcpy(hc, filter_coeff_M12, sizeof(hc));
+				break;
+			case 13:
+				memcpy(hc, filter_coeff_M13, sizeof(hc));
+				break;
+			case 14:
+				memcpy(hc, filter_coeff_M14, sizeof(hc));
+				break;
+			case 15:
+			case 16:
+				memcpy(hc, filter_coeff_M16, sizeof(hc));
+				break;
+			case 17:
+			case 18:
+			case 19:
+				memcpy(hc, filter_coeff_M19, sizeof(hc));
+				break;
+			case 20:
+			case 21:
+			case 22:
+				memcpy(hc, filter_coeff_M22, sizeof(hc));
+				break;
+			case 23:
+			case 24:
+			case 25:
+			case 26:
+				memcpy(hc, filter_coeff_M26, sizeof(hc));
+				break;
+			case 27:
+			case 28:
+			case 29:
+			case 30:
+			case 31:
+			case 32:
+				memcpy(hc, filter_coeff_M32, sizeof(hc));
+				break;
+			default:
+				DSSDBG("Chosing default M val = 8 \n");
+				memcpy(hc, filter_coeff_M8, sizeof(hc));
+				break;
+			};
+		}else {
+			/* out_width == orig_width */
+			if (dmaoptenabled && cpu_is_omap3630()){
+				DSSDBG("Chosing default M val = 8 \n");
+				memcpy(hc, filter_coeff_M8, sizeof(hc));
+			}
+		}
+	} else if (out_width != 0 && !five_taps) {
+		if (out_width != orig_width) {
+			/* Horizontal scaling */
+			if (out_height > orig_height) {
+				DSSDBG("Horizontal upscaling \n");
+				memcpy(hc, filter_coeff_hc_u, sizeof(hc));
+			} else {
+				DSSDBG("Horizontal downscaling \n");
+				memcpy(hc, filter_coeff_hc_d, sizeof(hc));
+			}
+		}
+	}
+
+	/* Pack the coefficients - use fivetaps for all ratios */
 	for (i = 0; i < 8; i++) {
-		u32 v;
-		v = v_coef[i];
-		_dispc_write_firv_reg(plane, i, v);
+		reg = 0;
+		DSSDBG("Phase i = %d \n", (int)i);
+		reg = ((hc[1][i] & 0xff) << 24)
+			| ((hc[2][i] & 0xff) << 16)
+			| ((hc[3][i] & 0xff) << 8)
+			| (hc[4][i] & 0xff);
+		_dispc_write_firh_reg(plane, i, reg);
+		DSSDBG("H coefficients = 0x%x\n", (int)reg);
+
+		if (!five_taps) {
+			reg = 0;
+			reg = (hc[0][i] & 0xff)
+				| ((vc_3tap[2][i] & 0xff) << 8)
+				| ((vc_3tap[1][i] & 0xff) << 16)
+				| ((vc_3tap[0][i] & 0xff) << 24);
+			_dispc_write_firhv_reg(plane, i, reg);
+			DSSDBG("HV coefficients = 0x%x\n", (int)reg);
+
+		} else {
+			reg = 0;
+			reg = (hc[0][i] & 0xff)
+				| ((vc[3][i] & 0xff) << 8)
+				| ((vc[2][i] & 0xff) << 16)
+				| ((vc[1][i] & 0xff) << 24);
+			_dispc_write_firhv_reg(plane, i, reg);
+			DSSDBG("HV coefficients = 0x%x\n", (int)reg);
+
+			reg = 0;
+			reg =  ((vc[0][i] & 0xff) << 8) | (vc[4][i] & 0xff);
+			_dispc_write_firv_reg(plane, i, reg);
+			DSSDBG("V coefficients = 0x%x\n", (int)reg);
+		}
 	}
 }
 
@@ -1057,7 +1250,7 @@ static void _dispc_set_scaling(enum omap_plane plane,
 		u16 orig_width, u16 orig_height,
 		u16 out_width, u16 out_height,
 		bool ilace, bool five_taps,
-		bool fieldmode)
+		bool fieldmode, bool dmaoptenabled)
 {
 	int fir_hinc;
 	int fir_vinc;
@@ -1071,7 +1264,10 @@ static void _dispc_set_scaling(enum omap_plane plane,
 	hscaleup = orig_width <= out_width;
 	vscaleup = orig_height <= out_height;
 
-	_dispc_set_scale_coef(plane, hscaleup, vscaleup, five_taps);
+	/* New filter coefficients integration */
+	_dispc_set_scale_coef(plane, orig_width, out_width,
+			orig_height, out_height, five_taps,
+			dmaoptenabled);
 
 	if (!orig_width || orig_width == out_width)
 		fir_hinc = 0;
@@ -1082,6 +1278,17 @@ static void _dispc_set_scaling(enum omap_plane plane,
 		fir_vinc = 0;
 	else
 		fir_vinc = 1024 * orig_height / out_height;
+
+	/* Override the settings if 36xx and DMA optimizations are enabled.
+	   Special case for 1:1 scaling.
+	*/
+	if (dmaoptenabled && cpu_is_omap3630()){
+		if (!orig_width || orig_width == out_width)
+			fir_hinc = 1024;
+		if (!orig_height || orig_height == out_height)
+			fir_vinc = 1024;
+	}
+
 
 	_dispc_set_fir(plane, fir_hinc, fir_vinc);
 
@@ -1155,12 +1362,16 @@ static void _dispc_set_rotation_attrs(enum omap_plane plane, u8 rotation,
 			}
 		}
 
-		REG_FLD_MOD(dispc_reg_att[plane], vidrot, 13, 12);
+                REG_FLD_MOD(dispc_reg_att[plane], vidrot, 13, 12);
+                if (cpu_is_omap3630()) {
+ 			REG_FLD_MOD(dispc_reg_att[plane], 0x0, 18, 18);
+		}else {
+			if (rotation == OMAP_DSS_ROT_90 || rotation == OMAP_DSS_ROT_270)
+				REG_FLD_MOD(dispc_reg_att[plane], 0x1, 18, 18);
+			else
+				REG_FLD_MOD(dispc_reg_att[plane], 0x0, 18, 18);
+		}
 
-		if (rotation == OMAP_DSS_ROT_90 || rotation == OMAP_DSS_ROT_270)
-			REG_FLD_MOD(dispc_reg_att[plane], 0x1, 18, 18);
-		else
-			REG_FLD_MOD(dispc_reg_att[plane], 0x0, 18, 18);
 	} else {
 		REG_FLD_MOD(dispc_reg_att[plane], 0, 13, 12);
 		REG_FLD_MOD(dispc_reg_att[plane], 0, 18, 18);
@@ -1521,6 +1732,7 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	s32 pix_inc;
 	u16 frame_height = height;
 	unsigned int field_offset = 0;
+	bool dmaoptenabled = false; /* Enabled only for OMAP36XX */
 
 	if (paddr == 0)
 		return -EINVAL;
@@ -1604,7 +1816,20 @@ static int _dispc_setup_plane(enum omap_plane plane,
 
 		/* Must use 5-tap filter? */
 		five_taps = height > out_height * 2;
-
+	        if (cpu_is_omap3630() && width <= 1024) {
+			if (rotation_type == OMAP_DSS_ROT_VRFB) {
+				/* DMA Optimizations for 36xx.Using 5 tap for all
+				scaling ratios and setting VIDDMAOPTIMIZATION(20),
+				VIDVERTICALTAPS(21) and VIDLINEBUFFERSPLIT(22)
+				bits in DISPC_VIDn_ATTRIBUTES register */
+				dmaoptenabled = false;
+				if (rotation == 1 || rotation == 3) {
+					dmaoptenabled = true;
+					five_taps = true;
+					REG_FLD_MOD(dispc_reg_att[plane], 7, 22, 20);
+				}
+			}
+		}
 		if (!five_taps) {
 			fclk = calc_fclk(width, height,
 					out_width, out_height);
@@ -1686,7 +1911,8 @@ static int _dispc_setup_plane(enum omap_plane plane,
 	if (plane != OMAP_DSS_GFX) {
 		_dispc_set_scaling(plane, width, height,
 				   out_width, out_height,
-				   ilace, five_taps, fieldmode);
+				   ilace, five_taps, fieldmode,
+				   dmaoptenabled);
 		_dispc_set_vid_size(plane, out_width, out_height);
 		_dispc_set_vid_color_conv(plane, cconv);
 	}
@@ -2735,7 +2961,13 @@ static void dispc_error_worker(struct work_struct *work)
 				continue;
 
 			if (ovl->id == 0) {
-				dispc_enable_plane(ovl->id, 0);
+				/* **** SHOLES TABLET HACK ****
+				 * Removing the disable of the graphics plane
+				 * for underflows as this causes problems
+				 * when switching displays.
+				 * Need more investigation.
+				dispc_enable_plane(ovl->id, 0); */
+
 				dispc_go(ovl->manager->id);
 				mdelay(50);
 				break;

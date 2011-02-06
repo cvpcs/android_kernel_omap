@@ -317,6 +317,14 @@ config MFD_CPCAP
 	help
 	 Say yes here if you want to include drivers for the CPCAP chip.
 
+config USB_TESTING_POWER
+	bool "Support Moto USB factory cable for phone power supply."
+	default n
+	help
+	 This enables Moto USB factory cable to power supply phone and does
+	 not break PM suspend entrance condition at all. For phone testing
+	 purpose only.
+
 endmenu
 
 menu "Multimedia Capabilities Port drivers"

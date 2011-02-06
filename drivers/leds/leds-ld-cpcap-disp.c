@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Motorola, Inc.
+ * Copyright (C) 2009-2010 Motorola, Inc.
  *
  * This program is free dispware; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,6 +19,7 @@
 #include <linux/err.h>
 #include <linux/leds.h>
 #include <linux/leds-ld-cpcap.h>
+#include <linux/leds-ld-cpcap-disp.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/cpcap.h>
@@ -31,18 +32,22 @@ struct disp_button_led_data {
 	int regulator_state;
 };
 
+static struct disp_button_config_data btn_data;
+
 static void disp_button_set(struct led_classdev *led_cdev,
 			    enum led_brightness value)
 {
 	unsigned short brightness = 0;
 	int cpcap_status = 0;
+	struct disp_button_config_data *pbtn_data = &btn_data;
 	struct disp_button_led_data *disp_button_led_data =
 	    container_of(led_cdev, struct disp_button_led_data,
 			 disp_button_class_dev);
 
 	if (value > 0) {
-		brightness = (LD_DISP_BUTTON_DUTY_CYCLE |
-			LD_DISP_BUTTON_CURRENT | LD_DISP_BUTTON_ON);
+
+		brightness = (pbtn_data->duty_cycle |
+				pbtn_data->led_current | LD_DISP_BUTTON_ON);
 
 		if ((disp_button_led_data->regulator) &&
 		    (disp_button_led_data->regulator_state == 0)) {
@@ -50,15 +55,30 @@ static void disp_button_set(struct led_classdev *led_cdev,
 			disp_button_led_data->regulator_state = 1;
 		}
 
-		cpcap_status = cpcap_regacc_write(disp_button_led_data->cpcap,
-						  CPCAP_REG_KLC,
-						  brightness,
-						  LD_DISP_BUTTON_CPCAP_MASK);
+		if (pbtn_data->reg2) {
+			brightness |= (pbtn_data->pwm | pbtn_data->fade_time |
+					pbtn_data->fade_en);
+		}
 
+		cpcap_status = cpcap_regacc_write(disp_button_led_data->cpcap,
+						  pbtn_data->reg,
+						  brightness,
+						  pbtn_data->cpcap_mask);
 		if (cpcap_status < 0)
 			pr_err("%s: Writing to the register failed for %i\n",
 			       __func__, cpcap_status);
 
+		if (pbtn_data->reg2) {
+			cpcap_status = cpcap_regacc_write(
+						disp_button_led_data->cpcap,
+						pbtn_data->reg2,
+						pbtn_data->abmode,
+						pbtn_data->abmode_cpcap_mask);
+			if (cpcap_status < 0)
+				pr_err(
+					"%s: Writing to the register failed\
+					for %i\n", __func__, cpcap_status);
+		}
 	} else {
 		if ((disp_button_led_data->regulator) &&
 		    (disp_button_led_data->regulator_state == 1)) {
@@ -69,14 +89,15 @@ static void disp_button_set(struct led_classdev *led_cdev,
 		turn off the duty cycle */
 		brightness = 0x01;
 		cpcap_status = cpcap_regacc_write(disp_button_led_data->cpcap,
-					  CPCAP_REG_KLC, brightness,
-					  LD_DISP_BUTTON_CPCAP_MASK);
+						  pbtn_data->reg,
+						  brightness,
+						  pbtn_data->cpcap_mask);
 
 		brightness = 0x00;
 		cpcap_status = cpcap_regacc_write(disp_button_led_data->cpcap,
-						  CPCAP_REG_KLC, brightness,
-						  LD_DISP_BUTTON_CPCAP_MASK);
-
+						  pbtn_data->reg,
+						  brightness,
+						  pbtn_data->cpcap_mask);
 		if (cpcap_status < 0)
 			pr_err("%s: Writing to the register failed for %i\n",
 			       __func__, cpcap_status);
@@ -101,12 +122,16 @@ static int disp_button_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	info->cpcap = pdev->dev.platform_data;
+	BUG_ON(pdev->dev.platform_data == NULL);
+	memcpy(&btn_data, pdev->dev.platform_data, sizeof(btn_data));
+
+	info->cpcap = platform_get_drvdata(pdev);
+	BUG_ON(info->cpcap == NULL);
 	platform_set_drvdata(pdev, info);
 
-	info->regulator = regulator_get(&pdev->dev, "vdd_button_backlight");
+	info->regulator = regulator_get(NULL, LD_SUPPLY);
 	if (IS_ERR(info->regulator)) {
-		pr_err("%s: Cannot get regulator\n", __func__);
+		pr_err("%s: Cannot get %s regulator\n", __func__, LD_SUPPLY);
 		ret = PTR_ERR(info->regulator);
 		goto exit_request_reg_failed;
 
@@ -151,9 +176,10 @@ static struct platform_driver ld_disp_button_driver = {
 		   },
 };
 
+
 static int __init led_disp_button_init(void)
 {
-	return platform_driver_register(&ld_disp_button_driver);
+	return cpcap_driver_register(&ld_disp_button_driver);
 }
 
 static void __exit led_disp_button_exit(void)

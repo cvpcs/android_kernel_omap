@@ -70,6 +70,7 @@ typedef struct _BM_BUF_
 
 	BM_MAPPING			*pMapping;
 	IMG_UINT32			ui32RefCount;
+	IMG_UINT32			ui32ExportCount;
 } BM_BUF;
 
 struct _BM_HEAP_
@@ -204,6 +205,10 @@ PVRSRV_DEVICE_NODE* BM_GetDeviceNode(IMG_HANDLE hDevMemContext);
 
 
 IMG_HANDLE BM_GetMappingHandle(PVRSRV_KERNEL_MEM_INFO *psMemInfo);
+
+IMG_VOID BM_Export(BM_HANDLE hBuf);
+
+IMG_VOID BM_FreeExport(BM_HANDLE hBuf, IMG_UINT32 ui32Flags);
 
 #if defined(__cplusplus)
 }

@@ -329,22 +329,34 @@ static void vfp_enable(void *unused)
 #ifdef CONFIG_PM
 #include <linux/sysdev.h>
 
-static int vfp_pm_suspend(struct sys_device *dev, pm_message_t state)
+void vfp_pm_save_context(void)
 {
-	struct thread_info *ti = current_thread_info();
 	u32 fpexc = fmrx(FPEXC);
+	unsigned int cpu = get_cpu();
 
-	/* if vfp is on, then save state for resumption */
-	if (fpexc & FPEXC_EN) {
+	/* Save last_VFP_context if needed */
+	if (last_VFP_context[cpu]) {
+		/* Enable vfp to save context */
+		if (!(fpexc & FPEXC_EN)) {
+			vfp_enable(NULL);
+			fmxr(FPEXC, fpexc | FPEXC_EN);
+		}
+
 		printk(KERN_DEBUG "%s: saving vfp state\n", __func__);
-		vfp_save_state(&ti->vfpstate, fpexc);
+		vfp_save_state(last_VFP_context[cpu], fpexc);
 
 		/* disable, just in case */
-		fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
+		fmxr(FPEXC, fpexc & ~FPEXC_EN);
+
+		last_VFP_context[cpu] = NULL;
 	}
 
-	/* clear any information we had about last context state */
-	memset(last_VFP_context, 0, sizeof(last_VFP_context));
+	put_cpu();
+}
+
+static int vfp_pm_suspend(struct sys_device *dev, pm_message_t state)
+{
+	vfp_pm_save_context();
 
 	return 0;
 }

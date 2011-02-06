@@ -1116,9 +1116,11 @@ skip_normal_probe:
 		}
 	}
 
+#ifndef CONFIG_USB_PANIC_ENUMERATION
 	/* Accept probe requests only for the control interface */
 	if (!combined_interfaces && intf != control_interface)
 		return -ENODEV;
+#endif
 
 	if (!combined_interfaces && usb_interface_claimed(data_interface)) {
 		/* valid in this context */
@@ -1396,6 +1398,9 @@ static void acm_disconnect(struct usb_interface *intf)
 #ifdef CONFIG_PM
 static int acm_suspend(struct usb_interface *intf, pm_message_t message)
 {
+#ifdef CONFIG_USB_PANIC_ENUMERATION
+	return -EBUSY;
+#else
 	struct acm *acm = usb_get_intfdata(intf);
 	int cnt;
 
@@ -1430,6 +1435,7 @@ static int acm_suspend(struct usb_interface *intf, pm_message_t message)
 
 	mutex_unlock(&acm->mutex);
 	return 0;
+#endif
 }
 
 static int acm_resume(struct usb_interface *intf)
@@ -1508,6 +1514,11 @@ static struct usb_device_id acm_ids[] = {
 	},
 	{ USB_DEVICE(0x22b8, 0x6425), /* Motorola MOTOMAGX phones */
 	},
+#ifdef CONFIG_USB_PANIC_ENUMERATION
+	{ USB_DEVICE(0x22b8, 0x6023), /* Motorola BP panic driver */
+	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
+	},
+#endif
 	{ USB_DEVICE(0x0572, 0x1329), /* Hummingbird huc56s (Conexant) */
 	.driver_info = NO_UNION_NORMAL, /* union descriptor misplaced on
 					   data interface instead of

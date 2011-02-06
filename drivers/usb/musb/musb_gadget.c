@@ -45,6 +45,7 @@
 #include <linux/dma-mapping.h>
 
 #include "musb_core.h"
+#include "omap2430.h"
 
 
 /* MUSB PERIPHERAL status 3-mar-2006:
@@ -112,6 +113,14 @@ __acquires(ep->musb->lock)
 	int			busy = ep->busy;
 
 	req = to_musb_request(request);
+
+	if (((&request->list)->prev == LIST_POISON2) ||
+		((&request->list)->next == LIST_POISON1)) {
+		dump_stack();
+		panic("%s():skip the request on ep %d\n",
+		__func__, ep->current_epnum);
+		return;
+	}
 
 	list_del(&request->list);
 	if (req->request.status == -EINPROGRESS)
@@ -191,6 +200,9 @@ static void nuke(struct musb_ep *ep, const int status)
 		c->channel_release(ep->dma);
 		ep->dma = NULL;
 	}
+
+	printk(KERN_DEBUG "%s(): epnum=%d is_in=%d status=%d\n",
+		__func__, ep->current_epnum, ep->is_in, status);
 
 	while (!list_empty(&(ep->req_list))) {
 		req = container_of(ep->req_list.next, struct musb_request,
@@ -311,7 +323,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			size_t request_size;
 
 			/* setup DMA, then program endpoint CSR */
-			request_size = min(request->length,
+			request_size = min(request->length - request->actual,
 						musb_ep->dma->max_len);
 			if (request_size < musb_ep->packet_sz)
 				musb_ep->dma->desired_mode = 0;
@@ -321,7 +333,8 @@ static void txstate(struct musb *musb, struct musb_request *req)
 			use_dma = use_dma && c->channel_program(
 					musb_ep->dma, musb_ep->packet_sz,
 					musb_ep->dma->desired_mode,
-					request->dma, request_size);
+					request->dma + request->actual,
+					request_size);
 			if (use_dma) {
 				if (musb_ep->dma->desired_mode == 0) {
 					/*
@@ -432,6 +445,16 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 
 	dma = is_dma_capable() ? musb_ep->dma : NULL;
 	do {
+		/* CSR cannot be zero. If we encounter this condition, just free
+		the request and exit */
+		if ((dma != NULL) && !csr) {
+			printk(KERN_INFO "TXCSR is zero for %s \n",
+						musb_ep->end_point.name);
+			if (request)
+				musb_g_giveback(musb_ep, request, -EPIPE);
+			break;
+		}
+
 		/* REVISIT for high bandwidth, MUSB_TXCSR_P_INCOMPTX
 		 * probably rates reporting as a host error
 		 */
@@ -695,6 +718,14 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 
 				if (use_dma)
 					return;
+
+				/* disable the MUSB DMA if it is failed */
+				csr &= ~MUSB_RXCSR_DMAENAB;
+#ifdef USE_MODE1
+				csr &= ~MUSB_RXCSR_AUTOCLEAR;
+				csr &= ~MUSB_RXCSR_DMAMODE;
+#endif
+				musb_writew(epio, MUSB_RXCSR, csr);
 			}
 #endif	/* Mentor's DMA */
 
@@ -957,8 +988,12 @@ static int musb_gadget_enable(struct usb_ep *ep,
 
 	/* NOTE:  all the I/O code _should_ work fine without DMA, in case
 	 * for some reason you run out of channels here.
+	 *
+	 * Only bulk eps are allowed to use DMA channels. Otherwise, there
+	 * might be not enough channel for data transfer.
 	 */
-	if (is_dma_capable() && musb->dma_controller) {
+	if (is_dma_capable() && musb->dma_controller &&
+			(musb_ep->type == USB_ENDPOINT_XFER_BULK)) {
 		struct dma_controller	*c = musb->dma_controller;
 
 		musb_ep->dma = c->channel_alloc(c, hw_ep,
@@ -1467,13 +1502,29 @@ musb_gadget_set_self_powered(struct usb_gadget *gadget, int is_selfpowered)
 static void musb_pullup(struct musb *musb, int is_on)
 {
 	u8 power;
+	u32 reg, stdby;
+
+	reg = omap_readl(OTG_SYSCONFIG);
+	stdby = omap_readl(OTG_FORCESTDBY);
+
 
 	power = musb_readb(musb->mregs, MUSB_POWER);
-	if (is_on)
+	if (is_on) {
+		reg |= NOSTDBY;        /* enable no standby */
+		reg |= NOIDLE;         /* enable no idle */
 		power |= MUSB_POWER_SOFTCONN;
-	else
+		stdby &= ~ENABLEFORCE; /* disable MSTANDBY */
+	} else {
+		reg &= ~NOSTDBY;          /* remove possible nostdby */
+		reg &= ~NOIDLE;           /* remove possible noidle */
 		power &= ~MUSB_POWER_SOFTCONN;
+		stdby |= ENABLEFORCE;     /* enable MSTANDBY */
+	}
 
+	/* Do not change the order of this write, otherwise
+		MUSB Power Management may not work */
+	omap_writel(stdby, OTG_FORCESTDBY);
+	omap_writel(reg, OTG_SYSCONFIG);
 	/* FIXME if on, HdrcStart; if off, HdrcStop */
 
 	DBG(3, "gadget %s D+ pullup %s\n",
@@ -1711,7 +1762,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		musb->gadget_driver = driver;
 		musb->g.dev.driver = &driver->driver;
 		driver->driver.bus = NULL;
-		musb->softconnect = 1;
+		musb->softconnect = 0;
 		retval = 0;
 	}
 
@@ -1779,10 +1830,8 @@ static void stop_activity(struct musb *musb, struct usb_gadget_driver *driver)
 		musb->g.speed = USB_SPEED_UNKNOWN;
 
 	/* deactivate the hardware */
-	if (musb->softconnect) {
-		musb->softconnect = 0;
-		musb_pullup(musb, 0);
-	}
+	musb->softconnect = 0;
+	musb_pullup(musb, 0);
 	musb_stop(musb);
 
 	/* killing any outstanding requests will quiesce the driver;

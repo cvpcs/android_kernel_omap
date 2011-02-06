@@ -190,7 +190,7 @@ static struct platform_driver cpcap_usb_driver = {
 
 static int __init cpcap_usb_init(void)
 {
-	return platform_driver_register(&cpcap_usb_driver);
+	return cpcap_driver_register(&cpcap_usb_driver);
 }
 subsys_initcall(cpcap_usb_init);
 

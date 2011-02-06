@@ -16,6 +16,8 @@
 extern u32 enable_off_mode;
 extern u32 sleep_while_idle;
 extern u32 voltage_off_while_idle;
+extern unsigned int wakeup_timer_nseconds;
+extern u32 enable_abb_mode;
 
 extern void *omap3_secure_ram_storage;
 extern void omap3_pm_off_mode_enable(int);
@@ -23,6 +25,10 @@ extern void omap_sram_idle(void);
 extern int omap3_can_sleep(void);
 extern int set_pwrdm_state(struct powerdomain *pwrdm, u32 state);
 extern int omap3_idle_init(void);
+extern void vfp_pm_save_context(void);
+
+extern void lock_scratchpad_sem(void);
+extern void unlock_scratchpad_sem(void);
 
 struct prm_setup_vc {
 	u16 clksetup;
@@ -61,6 +67,7 @@ extern void omap3_pm_init_vc(struct prm_setup_vc *setup_vc);
 #ifdef CONFIG_CPU_IDLE
 extern void omap3_pm_init_cpuidle(struct cpuidle_params *cpuidle_board_params);
 extern int omap3_bypass_cmd(u8 slave_addr, u8 reg_addr, u8 cmd);
+extern int set_dpll3_volt_freq(bool dpll3_restore);
 #else
 static inline void omap3_pm_init_cpuidle(
 			struct cpuidle_params *cpuidle_board_params)

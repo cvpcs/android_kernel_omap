@@ -43,13 +43,13 @@ static bool uses_videoport;
 static struct isp_reg ispcsi2_reg_list[] = {
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSCONFIG, 0},
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSSTATUS, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQSTATUS, 0},
+	/*{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQSTATUS, 0},*/
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_IRQENABLE, 0},
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTRL, 0},
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_DBG_H, 0},
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_GNQ, 0},
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO_CFG1, 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO1_IRQSTATUS, 0},
+	/*{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO1_IRQSTATUS, 0},*/
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SHORT_PACKET, 0},
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_COMPLEXIO1_IRQENABLE, 0},
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL1(0), 0},
@@ -58,7 +58,7 @@ static struct isp_reg ispcsi2_reg_list[] = {
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_PING_ADDR(0), 0},
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_DAT_PONG_ADDR(0), 0},
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_IRQENABLE(0), 0},
-	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_IRQSTATUS(0), 0},
+	/*{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_IRQSTATUS(0), 0},*/
 	{OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTX_CTRL3(0), 0},
 	{OMAP3_ISP_IOMEM_CSI2PHY, ISPCSI2PHY_CFG0, 0},
 	{OMAP3_ISP_IOMEM_CSI2PHY, ISPCSI2PHY_CFG1, 0},
@@ -725,6 +725,21 @@ int isp_csi2_ctrl_get(void)
 	currctrl_u->if_enable = false;
 
 	update_ctrl = false;
+	return 0;
+}
+
+/**
+ * isp_csi2_ctrl_phy_if_enable - Enable/disable physical interface
+ *
+ * Always returns 0.
+ **/
+int isp_csi2_ctrl_phy_if_enable(u8 enable)
+{
+	if (enable)
+		isp_reg_or(OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTRL, 0x1);
+	else
+		isp_reg_and(OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_CTRL, ~0x1);
+
 	return 0;
 }
 
@@ -1792,6 +1807,7 @@ int isp_csi2_timings_get_all(void)
 void isp_csi2_isr(void)
 {
 	u32 csi2_irqstatus, cpxio1_irqstatus, ctxirqstatus;
+	static u32 print_count;
 
 	csi2_irqstatus = isp_reg_readl(OMAP3_ISP_IOMEM_CSI2A,
 				       ISPCSI2_IRQSTATUS);
@@ -1823,8 +1839,16 @@ void isp_csi2_isr(void)
 	if (csi2_irqstatus & ISPCSI2_IRQSTATUS_ECC_CORRECTION_IRQ)
 		printk(KERN_DEBUG "CSI2: ECC correction done\n");
 
-	if (csi2_irqstatus & ISPCSI2_IRQSTATUS_ECC_NO_CORRECTION_IRQ)
-		printk(KERN_ERR "CSI2: ECC correction failed\n");
+	if (csi2_irqstatus & ISPCSI2_IRQSTATUS_ECC_NO_CORRECTION_IRQ) {
+		/* avoid spurious printing - can lock up kernel */
+		if ((print_count % 1000) == 0)
+			printk(KERN_ERR "CSI2: ECC correction failed (X %d)\n",
+			       print_count);
+		print_count++;
+#if defined(CONFIG_VIDEO_MIPI_DLI_TEST)
+		ecc_counter++;
+#endif
+	}
 
 	if (csi2_irqstatus & ISPCSI2_IRQSTATUS_COMPLEXIO2_ERR_IRQ)
 		printk(KERN_ERR "CSI2: ComplexIO #2 failed\n");
@@ -1984,6 +2008,11 @@ int isp_csi2_reset(void)
 	reg = isp_reg_readl(OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSCONFIG);
 	reg |= ISPCSI2_SYSCONFIG_SOFT_RESET_RESET;
 	isp_reg_writel(reg, OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSCONFIG);
+
+	if (cpu_is_omap3630())
+		isp_reg_or(OMAP3_ISP_IOMEM_CSI2A,
+			ISPCSI2_COMPLEXIO_CFG1,
+			ISPCSI2_COMPLEXIO_CFG1_RESET_CTRL_DEASSERTED);
 
 	do {
 		reg = isp_reg_readl(OMAP3_ISP_IOMEM_CSI2A, ISPCSI2_SYSSTATUS) &

@@ -14,23 +14,37 @@
 #include <plat/sdrc.h>
 
 static struct omap_sdrc_params JEDEC_JESD209A_sdrc_params[] = {
-    [0] = {
-        .rate        = 160500000,
-        .actim_ctrla = 0xBA9DB4C6,
-        .actim_ctrlb = 0x00022221,
-        .rfr_ctrl    = 0x0004B902,
-        .mr		     = 0x00000032,
-    },
-    [1] = {
-        .rate        = 80250000,
-        .actim_ctrla = 0x49512284,
-        .actim_ctrlb = 0x0001120C,
-        .rfr_ctrl    = 0x23F02,
-        .mr		     = 0x00000032,
-    },
-    [2] = {
-        .rate        = 0
-    },
+	[0] = {
+		.rate        = 200000000,
+		.actim_ctrla = 0x92E1C4C6,
+		.actim_ctrlb = 0x0002431C,
+		.rfr_ctrl    = 0x0005E602,
+		.mr          = 0x00000032,
+	},
+	[1] = {
+		.rate        = 100000000,
+		.actim_ctrla = 0x49912283,
+		.actim_ctrlb = 0x0002430E,
+		.rfr_ctrl    = 0x0002DA02,
+		.mr          = 0x00000032,
+	},
+	[2] = {
+		.rate        = 160000000,
+		.actim_ctrla = 0xBA9DB4C6,
+		.actim_ctrlb = 0x00022220,
+		.rfr_ctrl    = 0x0004AE02,
+		.mr	     = 0x00000032,
+	},
+	[3] = {
+		.rate        = 80000000,
+		.actim_ctrla = 0x49512284,
+		.actim_ctrlb = 0x0001120C,
+		.rfr_ctrl    = 0x23E02,
+		.mr	     = 0x00000032,
+	},
+	[4] = {
+		.rate        = 0
+	},
 };
 
 #endif

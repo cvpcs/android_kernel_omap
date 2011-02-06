@@ -452,8 +452,8 @@ static int prev_do_preview(struct prev_device *device)
 		goto out;
 	}
 
-	/* Make sure we don't wait for any HS_VS interrupts */
-	isp_set_hs_vs(0);
+	/* Make sure we don't wait for any yuv frames */
+	isp_set_wait_yuv(0);
 
 	isppreview_enable(1);
 

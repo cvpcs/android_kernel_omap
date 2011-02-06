@@ -26,6 +26,9 @@
 #include <linux/device.h>
 
 #include <linux/usb/composite.h>
+#ifdef CONFIG_USB_MOT_ANDROID
+#include "f_mot_android.h"
+#endif
 
 
 /*
@@ -765,6 +768,9 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 
 	/* we handle all standard USB descriptors */
 	case USB_REQ_GET_DESCRIPTOR:
+#ifdef CONFIG_USB_MOT_ANDROID
+		usb_data_transfer_callback();
+#endif
 		if (ctrl->bRequestType != USB_DIR_IN)
 			goto unknown;
 		switch (w_value >> 8) {
@@ -819,11 +825,11 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	case USB_REQ_GET_CONFIGURATION:
 		if (ctrl->bRequestType != USB_DIR_IN)
 			goto unknown;
-		if (cdev->config) {
+		if (cdev->config)
 			*(u8 *)req->buf = cdev->config->bConfigurationValue;
-			value = min(w_length, (u16) 1);
-		} else
+		else
 			*(u8 *)req->buf = 0;
+		value = min(w_length, (u16) 1);
 		break;
 
 	/* function drivers must handle get/set altsetting; if there's
@@ -1043,7 +1049,8 @@ static int __init composite_bind(struct usb_gadget *gadget)
 	cdev->bufsiz = USB_BUFSIZ;
 	cdev->driver = composite;
 
-	usb_gadget_set_selfpowered(gadget);
+	/* Do not report Self Powered as WHQL tests fail on Win7 */
+	/*usb_gadget_set_selfpowered(gadget);*/
 
 	/* interface and string IDs start at zero via kzalloc.
 	 * we force endpoints to start unassigned; few controller

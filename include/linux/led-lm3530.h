@@ -85,6 +85,7 @@ struct lm3530_platform_data {
 	u8 upper_curr_sel;
 	u8 lower_curr_sel;
 	u8 lens_loss_coeff;
+	u8 manual_als_config;
 } __attribute__ ((packed));
 
 #endif	/* __KERNEL__ */

@@ -5342,6 +5342,11 @@ static noinline void __schedule_bug(struct task_struct *prev)
 		show_regs(regs);
 	else
 		dump_stack();
+
+#ifdef CONFIG_DEBUG_SPINLOCK_SLEEP
+	if (!oops_in_progress)
+		BUG();
+#endif
 }
 
 /*
@@ -9648,6 +9653,10 @@ void __might_sleep(char *file, int line, int preempt_offset)
 	if (irqs_disabled())
 		print_irqtrace_events(current);
 	dump_stack();
+
+	/*
+	 * TODO: Call BUG() here to trigger panic
+	 */
 #endif
 }
 EXPORT_SYMBOL(__might_sleep);

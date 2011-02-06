@@ -1,6 +1,11 @@
 menu "OMAP2/3 Display Device Drivers"
         depends on OMAP2_DSS
 
+config USER_PANEL_DRIVER
+        tristate "User Panel Driver"
+        help
+	  User side panel driver interface.
+
 config PANEL_GENERIC
         tristate "Generic Panel"
         help
@@ -30,18 +35,14 @@ config PANEL_SHOLES
         help
 	  LCD Panel used in sholes
 
-config PANEL_BOXER
-	tristate "TI Boxer Panel"
-	help
-	  LCD Panel used in the TI Boxer
+config PANEL_MAPPHONE
+        tristate "Mapphone Panel"
+        help
+          LCD Panel used in Mapphone
 
-config PANEL_BOXER_CPT
-	bool "Boxer board with CPT panel"
-	default y
-	help
-	  Select if you have the boxer boadr
-	  with CPT panel mounted. For Samsung
-	  set to N.
-	depends on PANEL_BOXER
+config PANEL_MAPPHONE_HDTV
+        tristate "Mapphone HDTV Panel"
+        help
+	  HDTV Panel used in Mapphone
 
 endmenu

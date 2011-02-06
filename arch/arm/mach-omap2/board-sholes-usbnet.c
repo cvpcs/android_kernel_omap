@@ -23,7 +23,6 @@
 #include <linux/spinlock.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
-#include <linux/platform_device.h>
 #include <linux/skbuff.h>
 #include <linux/if.h>
 #include <linux/inetdevice.h>
@@ -373,13 +372,6 @@ static void usbnet_if_config(struct work_struct *work)
 	set_fs(saved_fs);
 }
 
-static const struct net_device_ops eth_netdev_ops = {
-	.ndo_open		= usb_ether_open,
-	.ndo_stop		= usb_ether_stop,
-	.ndo_start_xmit		= usb_ether_xmit,
-	.ndo_get_stats		= usb_ether_get_stats,
-};
-
 static void usb_ether_setup(struct net_device *dev)
 {
 	struct usbnet_context *context = netdev_priv(dev);
@@ -389,7 +381,10 @@ static void usb_ether_setup(struct net_device *dev)
 	spin_lock_init(&context->lock);
 	context->dev = dev;
 
-	dev->netdev_ops = &eth_netdev_ops;
+	dev->open = usb_ether_open;
+	dev->stop = usb_ether_stop;
+	dev->hard_start_xmit = usb_ether_xmit;
+	dev->get_stats = usb_ether_get_stats;
 	dev->watchdog_timeo = 20;
 
 	ether_setup(dev);
@@ -823,23 +818,10 @@ static struct android_usb_function usbnet_function = {
 	.bind_config = usbnet_bind_config,
 };
 
-static int __init usbnet_probe(struct platform_device *pdev)
-{
-	pr_info("usbnet_probe\n");
-	/* do not register our function unless our platform device was registered */
-	android_register_function(&usbnet_function);
-	return 0;
-}
-
-static struct platform_driver usbnet_platform_driver = {
-	.driver = { .name = "usbnet", },
-	.probe = usbnet_probe,
-};
-
 static int __init init(void)
 {
-	pr_info("usbnet init\n");
-	platform_driver_register(&usbnet_platform_driver);
+	printk(KERN_INFO "usbnet init\n");
+	android_register_function(&usbnet_function);
 	return 0;
 }
 module_init(init);

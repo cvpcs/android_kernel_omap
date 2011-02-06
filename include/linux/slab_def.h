@@ -220,4 +220,8 @@ found:
 
 #endif	/* CONFIG_NUMA */
 
+#ifdef CONFIG_MUDFLAP
+void slab_check_write(void *ptr, unsigned int sz, const char *location);
+#endif
+
 #endif	/* _LINUX_SLAB_DEF_H */

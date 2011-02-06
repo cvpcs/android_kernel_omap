@@ -2483,6 +2483,11 @@ static int __init omap_init_dma(void)
 		return 0;
 	}
 
+	/* Reserve last 8 channels for SMC sw */
+	if (cpu_is_omap34xx() &&
+			(omap_type() != OMAP2_DEVICE_TYPE_GP))
+		dma_chan_count = dma_chan_count - 8;
+
 	spin_lock_init(&lcd_dma.lock);
 	spin_lock_init(&dma_chan_lock);
 

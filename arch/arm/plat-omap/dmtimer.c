@@ -10,6 +10,9 @@
  * Copyright (C) 2009 Texas Instruments
  * Added OMAP4 support - Santosh Shilimkar <santosh.shilimkar@ti.com>
  *
+ * Copyright (C) 2010 Motorola Inc.
+ * API improvements.
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; either version 2 of the License, or (at your
@@ -621,6 +624,12 @@ void omap_dm_timer_set_load(struct omap_dm_timer *timer, int autoreload,
 	omap_dm_timer_write_reg(timer, OMAP_TIMER_TRIGGER_REG, 0);
 }
 EXPORT_SYMBOL_GPL(omap_dm_timer_set_load);
+
+void omap_dm_timer_update_load(struct omap_dm_timer *timer, unsigned int load)
+{
+	omap_dm_timer_write_reg(timer, OMAP_TIMER_LOAD_REG, load);
+}
+EXPORT_SYMBOL_GPL(omap_dm_timer_update_load);
 
 /* Optimized set_load which removes costly spin wait in timer_start */
 void omap_dm_timer_set_load_start(struct omap_dm_timer *timer, int autoreload,

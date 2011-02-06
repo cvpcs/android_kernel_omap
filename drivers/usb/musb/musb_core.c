@@ -891,7 +891,6 @@ void musb_start(struct musb *musb)
 
 	/* put into basic highspeed mode and start session */
 	musb_writeb(regs, MUSB_POWER, MUSB_POWER_ISOUPDATE
-						| MUSB_POWER_SOFTCONN
 						| MUSB_POWER_HSENAB
 						/* ENSUSPEND wedges tusb */
 						/* | MUSB_POWER_ENSUSPEND */
@@ -1319,7 +1318,6 @@ static int __init musb_core_init(u16 musb_type, struct musb *musb)
 #endif
 	u8 reg;
 	char *type;
-	u16 hwvers, rev_major, rev_minor;
 	char aInfo[78], aRevision[32], aDate[12];
 	void __iomem	*mbase = musb->mregs;
 	int		status = 0;
@@ -1391,11 +1389,10 @@ static int __init musb_core_init(u16 musb_type, struct musb *musb)
 	}
 
 	/* log release info */
-	hwvers = musb_read_hwvers(mbase);
-	rev_major = (hwvers >> 10) & 0x1f;
-	rev_minor = hwvers & 0x3ff;
-	snprintf(aRevision, 32, "%d.%d%s", rev_major,
-		rev_minor, (hwvers & 0x8000) ? "RC" : "");
+	musb->hwvers = musb_read_hwvers(mbase);
+	snprintf(aRevision, 32, "%d.%d%s", MUSB_HWVERS_MAJOR(musb->hwvers),
+		MUSB_HWVERS_MINOR(musb->hwvers),
+		(musb->hwvers & MUSB_HWVERS_RC) ? "RC" : "");
 	printk(KERN_DEBUG "%s: %sHDRC RTL version %s %s\n",
 			musb_driver_name, type, aRevision, aDate);
 
