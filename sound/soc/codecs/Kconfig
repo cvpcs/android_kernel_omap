@@ -129,6 +129,10 @@ config SND_SOC_STAC9766
 config SND_SOC_TLV320AIC23
 	tristate
 
+config SND_SOC_DAC3100
+	tristate "Texas Instruments DAC3100 codecs support"
+	depends on I2C
+
 config SND_SOC_TLV320AIC26
 	tristate "TI TLV320AIC26 Codec support" if SND_SOC_OF_SIMPLE
 	depends on SPI
