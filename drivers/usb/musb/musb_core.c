@@ -936,6 +936,9 @@ static void musb_generic_disable(struct musb *musb)
 
 	/* off */
 	musb_writeb(mbase, MUSB_DEVCTL, 0);
+#ifdef CONFIG_MACH_ENCORE
+    musb_writeb(mbase, MUSB_POWER, MUSB_POWER_HSENAB);
+#endif
 
 	/*  flush pending interrupts */
 	temp = musb_readb(mbase, MUSB_INTRUSB);

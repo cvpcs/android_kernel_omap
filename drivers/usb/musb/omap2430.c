@@ -196,6 +196,25 @@ int musb_platform_set_mode(struct musb *musb, u8 musb_mode)
 
 	devctl |= MUSB_DEVCTL_SESSION;
 	musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
+	
+	switch (musb_mode) {
+#ifdef CONFIG_USB_MUSB_HDRC_HCD
+	case MUSB_HOST:
+		otg_set_host(&musb->xceiv, musb->xceiv.host);
+		break;
+#endif
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+	case MUSB_PERIPHERAL:
+		otg_set_peripheral(&musb->xceiv, musb->xceiv.gadget);
+		break;
+#endif
+#ifdef CONFIG_USB_MUSB_OTG
+	case MUSB_OTG:
+		break;
+#endif
+	default:
+		return -EINVAL;
+	}
 
 	return 0;
 }

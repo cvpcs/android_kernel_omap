@@ -455,6 +455,19 @@ omap_hsmmc_start_command(struct omap_hsmmc_host *host, struct mmc_command *cmd,
 		} else
 			resptype = 2;
 	}
+	
+#ifdef CONFIG_HC_Broken_eMMC_ZOOM2
+	if (host->id == OMAP_MMC2_DEVID) {
+		/*
+		 * HACK:
+		 * eMMC on Zoom2 seems fail init sequence without this
+		 * delay on SWITCH CMD.
+		 */
+		if (cmd->opcode == 6)
+			msleep(200);
+	}
+#endif
+
 
 	/*
 	 * Unlike OMAP1 controller, the cmdtype does not seem to be based on

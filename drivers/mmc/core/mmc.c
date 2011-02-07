@@ -117,7 +117,12 @@ static int mmc_decode_csd(struct mmc_card *card)
 	u32 *resp = card->raw_csd;
 
 	csd_struct = UNSTUFF_BITS(resp, 126, 2);
+#if defined(CONFIG_MACH_OMAP3630_EDP1) || defined(CONFIG_MACH_OMAP3621_EDP1) || defined(CONFIG_MACH_OMAP3621_BOXER) || defined(CONFIG_MACH_ENCORE)
+	/* To recognize Boxer board eMMC */
+	if (csd_struct != 1 && csd_struct != 2 && csd_struct != 3) {
+#else
 	if (csd_struct == 3) {
+#endif
 		printk(KERN_WARNING "%s: CSD structure version decoded in "
 				    "EXT_CSD\n", mmc_hostname(card->host));
 	}
@@ -222,6 +227,24 @@ static int mmc_read_ext_csd(struct mmc_card *card)
 		goto out;
 	}
 
+#ifdef CONFIG_HC_Broken_eMMC_ZOOM2
+	/*
+	 * Hack: eMMC on Zoom2 seems to have a lower EXT_CSD Rev.
+	 * This is incorrect as it is an HC card. The card becomes
+	 * unusable if not set to blockaddr mode.
+	 * The low level driver sets up the unused bit for MMC2 on Zoom2.
+	 * Revert this hack once it is fixed in the card.
+	 */
+	if (card->host->unused) {
+		card->ext_csd.sectors =
+			ext_csd[EXT_CSD_SEC_CNT + 0] << 0 |
+			ext_csd[EXT_CSD_SEC_CNT + 1] << 8 |
+			ext_csd[EXT_CSD_SEC_CNT + 2] << 16 |
+			ext_csd[EXT_CSD_SEC_CNT + 3] << 24;
+		if (card->ext_csd.sectors)
+			mmc_card_set_blockaddr(card);
+	} else
+#endif
 	if (card->ext_csd.rev >= 2) {
 		card->ext_csd.sectors =
 			ext_csd[EXT_CSD_SEC_CNT + 0] << 0 |

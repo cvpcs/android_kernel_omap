@@ -26,6 +26,10 @@
 
 #include "mmc-twl4030.h"
 
+#ifdef CONFIG_MACH_ENCORE
+#include <mach/board-boxer.h>
+#endif /* CONFIG_MACH_ENCORE */
+
 
 #if defined(CONFIG_REGULATOR) && \
 	(defined(CONFIG_MMC_OMAP_HS) || defined(CONFIG_MMC_OMAP_HS_MODULE))
@@ -63,6 +67,20 @@ static int twl_mmc_card_detect(int irq)
 
 		/* NOTE: assumes card detect signal is active-low */
 		return !gpio_get_value_cansleep(mmc->slots[0].switch_pin);
+		
+#ifdef CCONFIG_MACH_ENCORE
+		/* NOTE: assumes card detect signal is active-low */
+		 /*for EVT2 and later, card is high when present*/
+		if(i==0) {
+		    if(is_encore_board_evt2()) {
+			return gpio_get_value_cansleep(mmc->slots[0].switch_pin);
+		    } else {
+			return !gpio_get_value_cansleep(mmc->slots[0].switch_pin);
+		    }       
+		} else {
+		      return !gpio_get_value_cansleep(mmc->slots[0].switch_pin);
+        }
+#endif /* CONFIG_MACH_ENCORE */
 	}
 	return -ENOSYS;
 }
