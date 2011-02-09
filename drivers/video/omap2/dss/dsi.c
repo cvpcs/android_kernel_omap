@@ -1183,9 +1183,11 @@ int dsi_pll_init(struct omap_dss_device *dssdev, bool enable_hsclk,
 	enable_clocks(1);
 	dsi_enable_pll_clock(1);
 
+#if !defined(CONFIG_MACH_ENCORE)
 	r = regulator_enable(dsi.vdds_dsi_reg);
 	if (r)
 		goto err0;
+#endif
 
 	 REG_FLD_MOD(DSI_CLK_CTRL, 0, 13, 13);   /* DDR_CLK_ALWAYS_ON */
 
@@ -1197,12 +1199,6 @@ int dsi_pll_init(struct omap_dss_device *dssdev, bool enable_hsclk,
 		r = -ENODEV;
 		goto err1;
 	}
-	
-#if !defined(CONFIG_MACH_OMAP3621_EDP1) && !defined(CONFIG_MACH_OMAP3621_BOXER) && !defined(CONFIG_MACH_ENCORE)
-	r = regulator_enable(dsi.vdds_dsi_reg);
-	if (r)
-		goto err0;
-#endif
 
 	/* XXX ... but if left on, we get problems when planes do not
 	 * fill the whole display. No idea about this */
@@ -1229,9 +1225,6 @@ int dsi_pll_init(struct omap_dss_device *dssdev, bool enable_hsclk,
 
 	return 0;
 err1:
-#if !defined(CONFIG_MACH_OMAP3621_EDP1) && !defined(CONFIG_MACH_OMAP3621_BOXER) && !defined(CONFIG_MACH_ENCORE)
-	regulator_disable(dsi.vdds_dsi_reg);
-#endif
 err0:
 	enable_clocks(0);
 	dsi_enable_pll_clock(0);
@@ -1242,10 +1235,6 @@ void dsi_pll_uninit(void)
 {
 	dsi.pll_locked = 0;
 	dsi_pll_power(DSI_PLL_POWER_OFF);
-
-#if !defined(CONFIG_MACH_OMAP3621_EDP1) && !defined(CONFIG_MACH_OMAP3621_BOXER) && !defined(CONFIG_MACH_ENCORE)
-	regulator_disable(dsi.vdds_dsi_reg);
-#endif
 	DSSDBG("PLL uninit done\n");
 }
 
@@ -4132,17 +4121,6 @@ int dsi_init(struct platform_device *pdev)
 		r = -ENOMEM;
 		goto err1;
 	}
-
-#if !defined(CONFIG_MACH_OMAP3621_EDP1) && !defined(CONFIG_MACH_OMAP3621_BOXER) && !defined(CONFIG_MACH_ENCORE)
-	dsi.vdds_dsi_reg = regulator_get(&pdev->dev, "vdds_dsi");
-	if (IS_ERR(dsi.vdds_dsi_reg)) {
-		iounmap(dsi.base);
-		DSSERR("can't get VDDS_DSI regulator\n");
-		r = PTR_ERR(dsi.vdds_dsi_reg);
-		goto err2;
-	}
-#endif
-
 	enable_clocks(1);
 
 	rev = dsi_read_reg(DSI_REVISION);
@@ -4165,11 +4143,6 @@ err0:
 void dsi_exit(void)
 {
 	kthread_stop(dsi.thread);
-
-#if !defined(CONFIG_MACH_OMAP3621_EDP1) && !defined(CONFIG_MACH_OMAP3621_BOXER) && !defined(CONFIG_MACH_ENCORE)
-	regulator_put(dsi.vdds_dsi_reg);
-#endif
-	
 	iounmap(dsi.base);
 
 	DSSDBG("omap_dsi_exit\n");
