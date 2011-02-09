@@ -1183,9 +1183,11 @@ int dsi_pll_init(struct omap_dss_device *dssdev, bool enable_hsclk,
 	enable_clocks(1);
 	dsi_enable_pll_clock(1);
 
+#if !defined(CONFIG_MACH_OMAP3621_EDP1) && !defined(CONFIG_MACH_OMAP3621_BOXER) && !defined(CONFIG_MACH_ENCORE)
 	r = regulator_enable(dsi.vdds_dsi_reg);
 	if (r)
 		goto err0;
+#endif
 
 	 REG_FLD_MOD(DSI_CLK_CTRL, 0, 13, 13);   /* DDR_CLK_ALWAYS_ON */
 
