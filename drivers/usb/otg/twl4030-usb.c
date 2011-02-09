@@ -236,6 +236,18 @@
 #define PMBR1				0x0D
 #define GPIO_USB_4PIN_ULPI_2430C	(3 << 0)
 
+#define TPS65921_USB_DTCT_CTRL		0x02
+#define TPS65921_USB_CHG_DET_EN_SW	(1 << 7)
+#define TPS65921_USB_DET_STS_MASK	(3 << 2)
+#define TPS65921_USB_DET_STS_100MA	(1 << 2)
+#define TPS65921_USB_DET_STS_500MA	(2 << 2)
+#define TPS65921_USB_HW_CHRG_DET_EN	(1 << 0)
+
+#define TPS65921_USB_SW_CHRG_CTRL	0x03
+#define TPS65921_CHGD_SERX_DM_LOWV	(1 << 5)
+#define TPS65921_CHGD_SERX_DP_LOWV	(1 << 4)
+
+#define IRQ_WAKE_LOCK_TIMEOUT       (5*HZ)
 
 
 enum linkstat {
@@ -504,6 +516,9 @@ static void twl4030_phy_resume(struct twl4030_usb *twl)
 
 static int twl4030_usb_ldo_init(struct twl4030_usb *twl)
 {
+  	const uint8_t key1 = twl_rev_is_tps65921() ? 0xFC : 0xC0;
+	const uint8_t key2 = twl_rev_is_tps65921() ? 0x96 : 0x0C;
+	
 	/* Enable writing to power configuration registers */
 	twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0xC0, PROTECT_KEY);
 	twl4030_i2c_write_u8(TWL4030_MODULE_PM_MASTER, 0x0C, PROTECT_KEY);
@@ -599,6 +614,15 @@ static irqreturn_t twl4030_usb_irq(int irq, void *_twl)
 		 * starts to handle softconnect right.
 		 */
 		twl4030charger_usb_en(status == USB_LINK_VBUS);
+		
+		
+		/* NOTE not entirely sure this is needed.
+		 * Bringing this over from 2.6.29 due to the lack of
+		 * TPS65921 in the .32 kernel
+		 */
+		twl4030_i2c_write_u8(TWL4030_MODULE_MAIN_CHARGE,
+                            TPS65921_USB_HW_CHRG_DET_EN,
+                            TPS65921_USB_DTCT_CTRL);
 
 		if (status == USB_LINK_NONE)
 			twl4030_phy_suspend(twl, 0);

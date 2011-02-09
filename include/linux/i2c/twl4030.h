@@ -399,6 +399,8 @@ struct twl4030_power_data {
 	struct twl4030_resconfig *resource_config;
 };
 
+extern bool twl_rev_is_tps65921(void); 
+
 extern void twl4030_power_init(struct twl4030_power_data *triton2_scripts);
 
 struct twl4030_codec_audio_data {

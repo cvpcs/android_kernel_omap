@@ -256,7 +256,7 @@ int __init omap_register_i2c_bus(int bus_id, u32 clkrate,
 
 	if (info) {
 		err = i2c_register_board_info(bus_id, info, len);
-		if (err)
+		if (err) 
 			return err;
 	}
 
