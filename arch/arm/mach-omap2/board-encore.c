@@ -728,21 +728,24 @@ static struct regulator_init_data boxer_vdsi = {
 	.consumer_supplies      = &boxer_vdds_dsi_supply,
 };
 
-static struct twl4030_hsmmc_info mmc[] = {
+static struct twl4030_hsmmc_info mmc[] __initdata = {
 	{
 		.mmc		= 1,
 		.wires		= 4,
 		.gpio_wp	= -EINVAL,
+        .gpio_cd    = -EINVAL,
 	},
 	{
 		.mmc		= 2,
 		.wires		= 8,
 		.gpio_wp	= -EINVAL,
+        .gpio_cd    = -EINVAL,
 	},
 	{
 		.mmc		= 3,
 		.wires		= 4,
 		.gpio_wp	= -EINVAL,
+        .gpio_cd    = -EINVAL,
 	},
 	{}      /* Terminator */
 };
@@ -753,6 +756,7 @@ static int __ref boxer_twl_gpio_setup(struct device *dev,
 	/* gpio + 0 is "mmc0_cd" (input/IRQ),
 	 * gpio + 1 is "mmc1_cd" (input/IRQ)
 	 */
+    printk("******IN boxer_twl_gpio_setup********\n");
 	mmc[0].gpio_cd = gpio + 0;
 	mmc[1].gpio_cd = gpio + 1;
 	twl4030_mmc_init(mmc);
@@ -1168,7 +1172,7 @@ static struct i2c_board_info __initdata boxer_i2c_bus1_info[] = {
 	},
 #endif	/*CONFIG_BATTERY_MAX17042*/	
 	{
-		I2C_BOARD_INFO("tps65921", 0x48),
+		I2C_BOARD_INFO("twl4030", 0x48),
 		.flags = I2C_CLIENT_WAKE,
 		.irq = INT_34XX_SYS_NIRQ,
 		.platform_data = &boxer_twldata,
@@ -1349,7 +1353,7 @@ static struct platform_device android_usb_device = {
 
 static int __init omap_i2c_init(void)
 {
-
+    printk("***********IN omap_i2c_init***********\n");
     int i2c1_devices;
 
 /* Disable OMAP 3630 internal pull-ups for I2Ci */
@@ -1377,7 +1381,7 @@ static int __init omap_i2c_init(void)
 	// tbd if it will be reworked on specific units
 	--i2c1_devices;
 #endif
-
+    printk("****omap_i2c_init(): Number of devices on bus1: %i\n", i2c1_devices);
 	omap_register_i2c_bus(1, 100, boxer_i2c_bus1_info,
 			i2c1_devices);
 	omap_register_i2c_bus(2, 400, boxer_i2c_bus2_info,
