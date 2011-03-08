@@ -1,6 +1,15 @@
 #!/bin/bash
 
-BUILD_CONFIGS="${@}"
+BUILD_CONFIGS="cm_stock_sholes_defconfig"
+REQUIRED_PROPS=""
+
+# ensure some android build stuff has been defined
+if [ -z "${ANDROID_BUILD_TOP}" ] ; then
+	echo "you must run build/envsetup.sh as well as lunch, to set some android envs"
+	exit 1
+else
+	echo "ANDROID_BUILD_TOP was found to be \"${ANDROID_BUILD_TOP}\""
+fi
 
 # guarantee some basic exported stuffs
 if [ "${ARCH}" != "arm" ] ; then
@@ -16,34 +25,24 @@ if [ -z "${KERNEL_DIR}" ] ; then
 	echo "KERNEL_DIR has been set to \"${KERNEL_DIR}\""
 fi
 if [ -z "${CROSS_COMPILE}" ] ; then
-	export CROSS_COMPILE="arm-eabi-"
+	export CROSS_COMPILE="${ANDROID_BUILD_TOP}/prebuilt/linux-x86/toolchain/arm-eabi-4.4.0/bin/arm-eabi-"
 	echo "CROSS_COMPILE has been set to \"${CROSS_COMPILE}\""
 fi
 
-# ensure some android build stuff has been defined
-if [ -z "${ANDROID_BUILD_TOP}" ] ; then
-	echo "you must run build/envsetup.sh as well as lunch, to set some android envs"
-	exit 1
-else
-	echo "ANDROID_BUILD_TOP was found to be \"${ANDROID_BUILD_TOP}\""
-fi
-
-REQUIRED_PROPS="etc/wifi/fw_wlan1271.bin \
-		etc/wifi/tiwlan.ini"
+# define mka for better make-ing
+function mka() {
+	schedtool -B -n 1 -e ionice -n 1 make -j `cat /proc/cpuinfo | grep "processor" | wc -l` "$@"
+}
 
 # we now perform a few contingency checks (make sure some props are available that we need)
 for prop in ${REQUIRED_PROPS} ; do
-	if [ ! -f "${ANDROID_BUILD_TOP}/device/motorola/sholes/proprietary/$(basename "${prop}")" ] ; then
+	if [ ! -f "${ANDROID_BUILD_TOP}/vendor/motorola/sholes/proprietary/$(basename "${prop}")" ] ; then
 		echo "Failed to locate a required proprietary file: ${prop}"
 		exit 1
 	fi
 done
 
 olddir="$(pwd)"
-
-if [ -z "${BUILD_CONFIGS}" ] ; then
-	BUILD_CONFIGS=$(ls -1 "${KERNEL_DIR}"/arch/arm/configs/*sapphire*_defconfig | sed -r "s/^.*\/([^\/]+)$/\1/")
-fi
 
 for i in ${BUILD_CONFIGS}; do
 	# verify the config exists
@@ -58,13 +57,13 @@ for i in ${BUILD_CONFIGS}; do
 	cd "${KERNEL_DIR}"
 
 	# clean the tree
-	make mrproper
+	mka mrproper
 
 	# load the config
-	make "${i}"
+	mka "${i}"
 
 	# make the kernel/modules
-	make -j4
+	mka
 
 	# create an output directory
 	rm -fr tmpdir
@@ -80,9 +79,9 @@ for i in ${BUILD_CONFIGS}; do
 	# now we go make our wireless module
 	cd "${ANDROID_BUILD_TOP}/system/wlan/ti/wilink_6_1/platforms/os/linux"
 	# clean an existing wireless module
-	make clean
+	mka clean
 	# make the module
-	make
+	mka
 	# copy it to our output
 	cp tiwlan_drv.ko "${KERNEL_DIR}/tmpdir/"
 
@@ -113,6 +112,9 @@ for i in ${BUILD_CONFIGS}; do
 	cd tmpdir/anykernel
 	zip -r "${KERNEL_DIR}/${i}.zip" .
 	cd "${KERNEL_DIR}"
+
+	# wipe out the tmp directory
+	rm -fr tmpdir
 
 	# move back to the old directory
 	cd "${olddir}"
