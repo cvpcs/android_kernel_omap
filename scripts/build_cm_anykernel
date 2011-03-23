@@ -79,9 +79,9 @@ for i in ${BUILD_CONFIGS}; do
 	# now we go make our wireless module
 	cd "${ANDROID_BUILD_TOP}/system/wlan/ti/wilink_6_1/platforms/os/linux"
 	# clean an existing wireless module
-	mka clean
+	make clean
 	# make the module
-	mka
+	make
 	# copy it to our output
 	cp tiwlan_drv.ko "${KERNEL_DIR}/tmpdir/"
 
