@@ -3,6 +3,11 @@
 BUILD_CONFIGS="cm_stock_sholes_defconfig"
 REQUIRED_PROPS=""
 
+# if we have provided options, specify them as build configs
+if [ $# -gt 1 ] ; then
+	BUILD_CONFIGS="$@"
+fi
+
 # ensure some android build stuff has been defined
 if [ -z "${ANDROID_BUILD_TOP}" ] ; then
 	echo "you must run build/envsetup.sh as well as lunch, to set some android envs"
