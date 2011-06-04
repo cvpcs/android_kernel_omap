@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BUILD_CONFIGS="cm_stock_sholes_defconfig"
+BUILD_CONFIGS="cm_sholes_stock_defconfig"
 REQUIRED_PROPS=""
 
 # if we have provided options, specify them as build configs
